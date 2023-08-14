@@ -3,11 +3,11 @@ from typing import Optional
 
 from loguru import logger
 
-from .constants import MATCH_INSIDE, MATCH_OVER3END, MATCH_OVER5END, MIN_FLANK
-from .feature import Feature
-from .read import Read
-from .segment_match import SegmentMatch
-from .transcript_model import TranscriptModel
+from velocyto.constants import MATCH_INSIDE, MATCH_OVER3END, MATCH_OVER5END, MIN_FLANK
+from velocyto.feature import Feature
+from velocyto.read import Read
+from velocyto.segment_match import SegmentMatch
+from velocyto.transcript_model import TranscriptModel
 
 
 class TransciptsIndex:
@@ -71,7 +71,9 @@ class FeatureIndex:
     """Search help class used to find the intervals that a read is spanning"""
 
     def __init__(self, ivls: Optional[list[Feature]] = None) -> None:
-        self.ivls = ivls if ivls is not None else []
+        if ivls is None:
+            ivls = []
+        self.ivls = ivls
         self.ivls.sort()  # NOTE: maybe I am sorting twice check what I do upon creation
         self.iidx = 0  # index of the current interval
         self.maxiidx = len(ivls) - 1
