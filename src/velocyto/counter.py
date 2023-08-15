@@ -880,40 +880,39 @@ class ExInCounter:
         nth = 0
         # Loop through the aligment of the bamfile
         for r in tqdm(self.iter_alignments(bamfile, unique=not multimap), desc="Count molecules: count"):
-            if nth < 10:
-                if (r is None) or (len(self.cell_batch) == cell_batch_size and r.bc not in self.cell_batch):
-                    # Perfrom the molecule counting
-                    nth += 1
-                    logger.debug(
-                        f"Counting for batch {nth}, containing {len(self.cell_batch)} cells and {len(self.reads_to_count)} reads"
-                    )
-                    dict_layer_columns, list_bcs = self.count_cell_batch()
+            if (r is None) or (len(self.cell_batch) == cell_batch_size and r.bc not in self.cell_batch):
+                # Perfrom the molecule counting
+                nth += 1
+                logger.debug(
+                    f"Counting for batch {nth}, containing {len(self.cell_batch)} cells and {len(self.reads_to_count)} reads"
+                )
+                dict_layer_columns, list_bcs = self.count_cell_batch()
 
-                    if not self.filter_mode:
-                        # The normal case
-                        cell_bcs_order += list_bcs
-                        for layer_name, layer_columns in dict_layer_columns.items():
-                            dict_list_arrays[layer_name].append(layer_columns)
-                    else:
-                        # This is to avoid crazy big matrix output if the barcode selection is not chosen
-                        logger.warning("The barcode selection mode is off, no cell events will be identified by <80 counts")
-                        tot_mol = dict_layer_columns["spliced"].sum(0) + dict_layer_columns["unspliced"].sum(0)
-                        cell_bcs_order += list(np.array(list_bcs)[tot_mol > 80])
-                        for layer_name, layer_columns in dict_layer_columns.items():
-                            dict_list_arrays[layer_name].append(layer_columns[:, tot_mol > 80])
-                        logger.warning(f"{np.sum(tot_mol < 80)} of the UMIs were without a cell barcode")
+                if not self.filter_mode:
+                    # The normal case
+                    cell_bcs_order += list_bcs
+                    for layer_name, layer_columns in dict_layer_columns.items():
+                        dict_list_arrays[layer_name].append(layer_columns)
+                else:
+                    # This is to avoid crazy big matrix output if the barcode selection is not chosen
+                    logger.warning("The barcode selection mode is off, no cell events will be identified by <80 counts")
+                    tot_mol = dict_layer_columns["spliced"].sum(0) + dict_layer_columns["unspliced"].sum(0)
+                    cell_bcs_order += list(np.array(list_bcs)[tot_mol > 80])
+                    for layer_name, layer_columns in dict_layer_columns.items():
+                        dict_list_arrays[layer_name].append(layer_columns[:, tot_mol > 80])
+                    logger.warning(f"{np.sum(tot_mol < 80)} of the UMIs were without a cell barcode")
 
-                    self.cell_batch = set()
-                    # Drop the counted reads (If there are no other reference to it) and reset the indexes to 0
-                    self.reads_to_count = []
-                    for (chromstrand_key, _,) in self.annotations_by_chrm_strand.items():
-                        self.feature_indexes[chromstrand_key].reset()
-                    for (chromstrand_key, _,) in self.mask_ivls_by_chromstrand.items():
-                        self.mask_indexes[chromstrand_key].reset()
+                self.cell_batch = set()
+                # Drop the counted reads (If there are no other reference to it) and reset the indexes to 0
+                self.reads_to_count = []
+                for (chromstrand_key, _,) in self.annotations_by_chrm_strand.items():
+                    self.feature_indexes[chromstrand_key].reset()
+                for (chromstrand_key, _,) in self.mask_ivls_by_chromstrand.items():
+                    self.mask_indexes[chromstrand_key].reset()
 
-                if r is not None:
-                    self.cell_batch.add(r.bc)
-                    self.reads_to_count.append(r)
+            if r is not None:
+                self.cell_batch.add(r.bc)
+                self.reads_to_count.append(r)
         # NOTE: Since iter_allignments is yielding None at each file change (even when only one bamfile) I do not need the following
         # logger.debug(f"Counting molecule for last batch of {len(self.cell_batch)}, total reads {len(self.reads_to_count)}")
         # spliced, unspliced, ambiguous, list_bcs = self.count_cell_batch()

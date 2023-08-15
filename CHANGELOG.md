@@ -1,5 +1,11 @@
 # Changelog
 
+** [0.30.1] and [0.30.2] - 2023-08-15
+
+*** Fixed
+
+- removed some testing code
+
 ** [0.30.0] - 2023-08-15
 
 *** Changed
