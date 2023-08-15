@@ -37,23 +37,24 @@ def id_generator(size: int = 6, chars: str = string.ascii_uppercase + string.dig
 
 
 def choose_logic(choice: logicType) -> logic.Logic:
-    if choice == "Permissive10X":
-        return logic.Permissive10X
-    elif choice == "Intermediate10X":
-        return logic.Intermediate10X
-    elif choice == "ValidatedIntrons10X":
-        return logic.ValidatedIntrons10X
-    elif choice == "Stricter10X":
-        return logic.Stricter10X
-    elif choice == "ObservedSpanning10X":
-        return logic.ObservedSpanning10X
-    elif choice == "Discordant10X":
-        return logic.Discordant10X
-    elif choice == "SmartSeq2":
-        return logic.SmartSeq2
-    else:
-        logger.error(f"{choice.value} is not a valid logic type")
-        exit()
+    match choice:
+        case "Permissive10X":
+            return logic.Permissive10X
+        case "Intermediate10X":
+            return logic.Intermediate10X
+        case "ValidatedIntrons10X":
+            return logic.ValidatedIntrons10X
+        case "Stricter10X":
+            return logic.Stricter10X
+        case "ObservedSpanning10X":
+            return logic.ObservedSpanning10X
+        case "Discordant10X":
+            return logic.Discordant10X
+        case "SmartSeq2":
+            return logic.SmartSeq2
+        case _:
+            logger.exception(f"{choice.value} is not a valid logic type")
+            exit()
 
 
 def choose_dtype(choice: loomdtype) -> str:

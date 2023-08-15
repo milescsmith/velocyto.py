@@ -59,23 +59,29 @@ class ExInCounter:
         self.mask_ivls_by_chromstrand = defaultdict(list)  # type: dict[str, list]
         self.geneid2ix: dict[str, int] = {}
         self.genes: dict[str, GeneInfo] = {}
-        if umi_extension.lower() == "no":
-            self.umi_extract = self._no_extension
-        elif umi_extension.lower() == "chr":
-            self.umi_extract = self._extension_chr
-        elif umi_extension.lower() in {"gene", "gx"}:
-            self.umi_extract = self._extension_Gene
-        elif umi_extension.endswith("bp"):
-            self.umi_bp = int(umi_extension[:-2])
-            self.umi_extract = self._extension_Nbp
-        elif umi_extension.lower() == "without_umi":
-            self.umi_extract = self._placeolder_umi
-        else:
-            raise ValueError(f"umi_extension {umi_extension} is not allowed. Use `no`, `Gene` or `[N]bp`")
+
+        match umi_extension.lower():
+            case "no":
+                self.umi_extract = self._no_extension
+            case "chr":
+                self.umi_extract = self._extension_chr
+            case ["gene", "gx"]:
+                self.umi_extract = self._extension_Gene
+            case "without_umi":
+                self.umi_extract = self._placeolder_umi
+            case _:
+                if not umi_extension.endswith("bp"):
+                    raise ValueError(
+                        f"umi_extension {umi_extension} is not allowed. Use `no`, `Gene` or `[N]bp`"
+                    )
+                self.umi_bp = int(umi_extension[:-2])
+                self.umi_extract = self._extension_Nbp
+
         if onefilepercell:
             self.cell_barcode_get = self._bam_id_barcode
         else:
             self.cell_barcode_get = self._normal_cell_barcode_get
+
         if self.logic.stranded:
             if self.logic.accept_discordant:
                 self.count_cell_batch = self._count_cell_batch_stranded_discordant
@@ -85,23 +91,18 @@ class ExInCounter:
             self.count_cell_batch = self._count_cell_batch_non_stranded
         # NOTE: by using a default dict and not logger access to keys that do not exist, we might miss bugs!!!
         self.test_flag = None
+
         if dump_option[0] == "p":
             self.kind_of_report = "p"
             self.every_n_report = int(dump_option[1:])
         else:
             self.kind_of_report = "h"
             self.every_n_report = int(dump_option)
+
         self.report_state = 0
         self.cellbarcode_str = "NULL_BC"  # This value should never be used this is just to initialize it and detect if there are bugs downstream
         self.umibarcode_str = "NULL_UB"  # This value should never be used this is just to initialize it and detect if there are bugs downstream
 
-    # NOTE: not supported anymore because now we support variable length barcodes
-    # @property
-    # def bclen(self) -> int:
-    #     try:
-    #         return len(next(iter(self.valid_bcset)))
-    #     except StopIteration:
-    #         return None
 
     @staticmethod
     def parse_cigar_tuple(cigartuples: list[tuple], pos: int) -> tuple[list[tuple[int, int]], bool, int, int]:
@@ -359,10 +360,10 @@ class ExInCounter:
         # fin = open(gtf_file)
         if gtf_file.suffix == ".gz":
             with gzip.open(gtf_file, "rb") as gtf:
-                gtf_lines = [line.decode() for line in gtf if not line.decode().startswith("#")]
+                gtf_lines = [line.decode() for line in tqdm(gtf) if not line.decode().startswith("#")]
         else:
             with open(gtf_file, "r") as gtf:
-                gtf_lines = [line for line in gtf if not line.startswith("#")]
+                gtf_lines = [line for line in tqdm(gtf) if not line.startswith("#")]
 
         def sorting_key(entry: str) -> tuple[str, bool, int, str]:
             """This sorting strategy is equivalent to sort -k1,1 -k7,7 -k4,4n"""
@@ -483,7 +484,7 @@ class ExInCounter:
                     trmodel.end,
                 )
 
-    def read_transcriptmodels(self, gtf_file: str) -> dict[str, dict[str, TranscriptModel]]:
+    def read_transcriptmodels(self, gtf_file: str) -> tuple[int, int]:
         """Reads transcript models from a sorted .gtf file
 
         Arguments
@@ -512,10 +513,10 @@ class ExInCounter:
 
         if gtf_file.suffix == ".gz":
             with gzip.open(gtf_file, "rb") as gtf:
-                gtf_lines = [line.decode() for line in gtf if not line.decode().startswith("#")]
+                gtf_lines = [line.decode() for line in tqdm(gtf) if not line.decode().startswith("#")]
         else:
             with open(gtf_file, "r") as gtf:
-                gtf_lines = [line for line in gtf if not line.startswith("#")]
+                gtf_lines = [line for line in tqdm(gtf) if not line.startswith("#")]
 
         def sorting_key(entry: str) -> tuple[str, bool, int, str]:
             """This sorting strategy is equivalent to sort -k1,1 -k7,7 -k4,4n"""
@@ -611,18 +612,20 @@ class ExInCounter:
         logger.debug(
             f"Fixing corner cases of transcript models containg intron longer than {LONGEST_INTRON_ALLOWED//1000}Kbp"
         )
-        # Fix corner cases of extremelly long introns ~1Mbp that would be masking genes that are found internally
+        # Fix corner cases of extremely long introns ~1Mbp that would be masking genes that are found internally
         for tmodels_orddict in self.annotations_by_chrm_strand.values():
             for tm in tmodels_orddict.values():
                 tm.chop_if_long_intron()  # Change it in place
 
         # Respect the sorting it had before
         # NOTE: not sure it is needed downstream anymore also not sure it guarantees exactly the same order
-        for chromstrand in self.annotations_by_chrm_strand.keys():
+        total_features: int = 0
+        for chromstrand in self.annotations_by_chrm_strand:
+            total_features += len(self.annotations_by_chrm_strand[chromstrand])
             tmp = OrderedDict((i.trid, i) for i in sorted(self.annotations_by_chrm_strand[chromstrand].values()))
             self.annotations_by_chrm_strand[chromstrand] = tmp
 
-        return self.annotations_by_chrm_strand
+        return total_features, len(self.annotations_by_chrm_strand)
 
     def peek_and_correct(self, gtf_lines: list[str]) -> list[str]:
         """Look at the first 20 instances of a list of lines of a gtf file to dermine if exon number is specified as it should.
@@ -877,46 +880,40 @@ class ExInCounter:
         nth = 0
         # Loop through the aligment of the bamfile
         for r in tqdm(self.iter_alignments(bamfile, unique=not multimap), desc="Count molecules: count"):
-            # if nth < 50:
-            if (r is None) or (len(self.cell_batch) == cell_batch_size and r.bc not in self.cell_batch):
-                # Perfrom the molecule counting
-                nth += 1
-                logger.debug(
-                    f"Counting for batch {nth}, containing {len(self.cell_batch)} cells and {len(self.reads_to_count)} reads"
-                )
-                dict_layer_columns, list_bcs = self.count_cell_batch()
+            if nth < 10:
+                if (r is None) or (len(self.cell_batch) == cell_batch_size and r.bc not in self.cell_batch):
+                    # Perfrom the molecule counting
+                    nth += 1
+                    logger.debug(
+                        f"Counting for batch {nth}, containing {len(self.cell_batch)} cells and {len(self.reads_to_count)} reads"
+                    )
+                    dict_layer_columns, list_bcs = self.count_cell_batch()
 
-                # This is to avoid crazy big matrix output if the barcode selection is not chosen
-                if not self.filter_mode:
-                    logger.warning("The barcode selection mode is off, no cell events will be identified by <80 counts")
-                    tot_mol = dict_layer_columns["spliced"].sum(0) + dict_layer_columns["unspliced"].sum(0)
-                    cell_bcs_order += list(np.array(list_bcs)[tot_mol > 80])
-                    for layer_name, layer_columns in dict_layer_columns.items():
-                        dict_list_arrays[layer_name].append(layer_columns[:, tot_mol > 80])
-                    logger.warning(f"{np.sum(tot_mol < 80)} of the barcodes where without cell")
-                else:
-                    # The normal case
-                    cell_bcs_order += list_bcs
-                    for layer_name, layer_columns in dict_layer_columns.items():
-                        dict_list_arrays[layer_name].append(layer_columns)
+                    if not self.filter_mode:
+                        # The normal case
+                        cell_bcs_order += list_bcs
+                        for layer_name, layer_columns in dict_layer_columns.items():
+                            dict_list_arrays[layer_name].append(layer_columns)
+                    else:
+                        # This is to avoid crazy big matrix output if the barcode selection is not chosen
+                        logger.warning("The barcode selection mode is off, no cell events will be identified by <80 counts")
+                        tot_mol = dict_layer_columns["spliced"].sum(0) + dict_layer_columns["unspliced"].sum(0)
+                        cell_bcs_order += list(np.array(list_bcs)[tot_mol > 80])
+                        for layer_name, layer_columns in dict_layer_columns.items():
+                            dict_list_arrays[layer_name].append(layer_columns[:, tot_mol > 80])
+                        logger.warning(f"{np.sum(tot_mol < 80)} of the UMIs were without a cell barcode")
 
-                self.cell_batch = set()
-                # Drop the counted reads (If there are no other reference to it) and reset the indexes to 0
-                self.reads_to_count = []
-                for (
-                    chromstrand_key,
-                    _,
-                ) in self.annotations_by_chrm_strand.items():
-                    self.feature_indexes[chromstrand_key].reset()
-                for (
-                    chromstrand_key,
-                    _,
-                ) in self.mask_ivls_by_chromstrand.items():
-                    self.mask_indexes[chromstrand_key].reset()
+                    self.cell_batch = set()
+                    # Drop the counted reads (If there are no other reference to it) and reset the indexes to 0
+                    self.reads_to_count = []
+                    for (chromstrand_key, _,) in self.annotations_by_chrm_strand.items():
+                        self.feature_indexes[chromstrand_key].reset()
+                    for (chromstrand_key, _,) in self.mask_ivls_by_chromstrand.items():
+                        self.mask_indexes[chromstrand_key].reset()
 
-            if r is not None:
-                self.cell_batch.add(r.bc)
-                self.reads_to_count.append(r)
+                if r is not None:
+                    self.cell_batch.add(r.bc)
+                    self.reads_to_count.append(r)
         # NOTE: Since iter_allignments is yielding None at each file change (even when only one bamfile) I do not need the following
         # logger.debug(f"Counting molecule for last batch of {len(self.cell_batch)}, total reads {len(self.reads_to_count)}")
         # spliced, unspliced, ambiguous, list_bcs = self.count_cell_batch()

@@ -1,17 +1,17 @@
 import gzip
-import itertools
 import multiprocessing
 import subprocess
 import sys
 from distutils.spawn import find_executable
 from pathlib import Path
 from typing import Any
+from functools import reduce
 
-import loompy
 import numpy as np
 import pandas as pd
 import scipy as sp
 from loguru import logger
+import anndata as ad
 
 from velocyto.constants import BAM_COMPRESSION
 from velocyto.counter import ExInCounter
@@ -211,9 +211,12 @@ def _run(
     #         clusters_pd = extract_cellranger_umap(clusters_file, cell_bcs_order)
     #         additional_ca["Clusters"] = clusters_pd["Cluster"].to_numpy(dtype="int16") - 1
 
-    ca = {"CellID": np.array([f"{sampleid}:{v_bc}{gem_grp}" for v_bc in cell_bcs_order])}
-    for key, value in sample.items():
-        ca[key] = np.full(len(cell_bcs_order), value)
+    # ca = {"CellID": np.array([f"{sampleid}:{v_bc}{gem_grp}" for v_bc in cell_bcs_order])}
+    obs_df = pd.DataFrame(
+        index = np.array([f"{sampleid}:{v_bc}{gem_grp}" for v_bc in cell_bcs_order])
+    )
+    # for key, value in sample.items():
+    #     ca[key] = np.full(len(cell_bcs_order), value)
 
     # Save to loom file
     outfile = outputfolder.joinpath(f"{sampleid}.loom")
@@ -236,23 +239,34 @@ def _run(
         for gene_id, gene_info in exincounter.genes.items():
             tmp_array[exincounter.geneid2ix[gene_id]] = getattr(gene_info, name_obj_attr)
         ra[name_col_attr] = tmp_array.astype(dtyp)
+    var_df = pd.DataFrame(ra, index=exincounter.genes)
 
     logger.debug("Generating data table")
     layers: dict[str, np.ndarray] = {
-        layer_name: sp.sparse.hstack(dict_list_arrays[layer_name], dtype=loom_numeric_dtype)
+        layer_name: sp.sparse.hstack(dict_list_arrays[layer_name], dtype=loom_numeric_dtype).transpose().tocsc()
         for layer_name in logic_obj.layers
     }
-
-    logger.debug("Writing loom file")
+    total = reduce(np.add, layers.items())
+    # Honestly, why are we messing with loom here?  Why not go straight into an anndata object?
+    # logger.debug("Writing loom file")
+    # try:
+    #     layers[""] = layers["spliced"]
+    #     loompy.create(
+    #         filename=str(outfile),
+    #         layers=layers,
+    #         row_attrs=ra,
+    #         col_attrs=ca,
+    #     )
+    #     logger.debug(f"Successfully wrote to {outfile}")
+    logger.debug(f"Creating anndata object at {outfile}")
     try:
-        layers[""] = layers[logic_obj.layers[0]]
-        loompy.create(
-            filename=str(outfile),
+        adata = ad.AnnData(
+            X=total[1],
+            obs=obs_df,
+            var=var_df,
             layers=layers,
-            row_attrs=ra,
-            col_attrs=ca,
-        )
-        logger.debug(f"Successfully wrote to {outfile}")
+            )
+        adata.write_h5ad(str(outfile))
 
     except TypeError as e:
         logger.error(e)
@@ -348,12 +362,9 @@ def sort_bamfiles(
 
 def load_annotations(gtffile, exincounter):
     logger.info(f"Load the annotation from {gtffile}")
-    annotations_by_chrm_strand = exincounter.read_transcriptmodels(gtffile)
-    chrs = [v for k, v in annotations_by_chrm_strand.items()]
-    tms = [itertools.chain.from_iterable((v.values() for v in chrs))]
-    ivls = [(itertools.chain.from_iterable(tms))]
-    logger.debug(f"Generated {len(ivls)} features corresponding to {len(tms)} transcript models from {gtffile}")
-    del chrs, tms, ivls
+    features, chrm_strands = exincounter.read_transcriptmodels(gtffile)
+    logger.debug(f"Generated {features} features corresponding to {chrm_strands} chromosome strands from {gtffile}")
+
 
 
 def resolve_sampleid(sampleid, metadatatable, onefilepercell, bamfile, multi):
@@ -394,8 +405,8 @@ def parse_bam_input(bamfile):
     return bamfile, multi
 
 
-def extract_cellranger_umap(umap_df, cell_bcs_order):
-    result = pd.read_csv(umap_df)
-    result["Barcode"] = [_[:-2] for _ in result["Barcode"]]
-    result = result[result["Barcode"].isin(cell_bcs_order)]
-    return result
+# def extract_cellranger_umap(umap_df, cell_bcs_order):
+#     result = pd.read_csv(umap_df)
+#     result["Barcode"] = [_[:-2] for _ in result["Barcode"]]
+#     result = result[result["Barcode"].isin(cell_bcs_order)]
+#     return result
