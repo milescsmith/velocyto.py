@@ -1,5 +1,14 @@
 # Changelog
 
+** [0.30.0] - 2023-08-15
+
+*** Changed
+
+- No longer save the results of `run` as a loom file - save it directly as an anndata object
+- replaced more "if...elif...else" with pattern matching
+- `ExInCounter.readtranscriptmodels` now returns the number of features and number of
+  chromosome examined because that is all that was being used
+
 ** [0.29.0] - 2023-08-07
 
 *** Fixed
