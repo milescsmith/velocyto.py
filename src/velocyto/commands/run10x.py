@@ -167,13 +167,13 @@ def run10x(
     if not barcode_file:
         barcode_file = list(samplefolder.joinpath("outs").rglob("sample_filtered_feature_bc_matrix/barcodes.tsv.gz"))
 
-    if not barcode_file[0].exists():
+    if not barcode_file.exists():
         logger.error(f"Can not locate the barcode file! Please check {barcode_file}")
-    bcfile = barcode_file[0]
+    bcfile = barcode_file
 
     outputfolder = samplefolder.joinpath("velocyto")
     sampleid = samplefolder.stem
-    if outputfolder.joinpath(f"{sampleid}.loom").exists():
+    if outputfolder.joinpath(f"{sampleid}.h5ad").exists():
         raise AssertionError("The output already exist. Aborted!")
 
     return _run(
