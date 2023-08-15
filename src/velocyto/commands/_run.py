@@ -219,7 +219,7 @@ def _run(
     #     ca[key] = np.full(len(cell_bcs_order), value)
 
     # Save to loom file
-    outfile = outputfolder.joinpath(f"{sampleid}.loom")
+    outfile = outputfolder.joinpath(f"{sampleid}.h5ad")
     logger.debug(f"Generating output file {outfile}")
 
     # row attributes
