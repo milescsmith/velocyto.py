@@ -13,10 +13,10 @@ import scipy as sp
 from loguru import logger
 import anndata as ad
 
-from velocyto.constants import BAM_COMPRESSION
-from velocyto.counter import ExInCounter
-from velocyto.metadata import MetadataCollection
-from velocyto.commands.common import choose_dtype, choose_logic, id_generator, logicType
+from velocount.constants import BAM_COMPRESSION
+from velocount.counter import ExInCounter
+from velocount.metadata import MetadataCollection
+from velocount.commands.common import choose_dtype, choose_logic, id_generator, logicType
 import better_exceptions
 
 better_exceptions.hook()
@@ -26,20 +26,19 @@ def _run(
     *,
     bam_input: tuple[Path],
     gtffile: Path,
-    bcfile: Path,
-    outputfolder: Path,
-    sampleid: str,
-    metadatatable: str,
-    repmask: str,
+    bcfile: Path | None,
+    outputfolder: Path | None,
+    sampleid: str | None,
+    metadatatable: Path | None,
+    repmask: Path | None,
     onefilepercell: bool,
     logic: str,
-    without_umi: str,
+    without_umi: bool,
     umi_extension: str,
     multimap: bool,
     samtools_threads: int,
     samtools_memory: str,
     loom_numeric_dtype: str,
-    dump: str,
     verbose: int,
     samtools_path: Path | None = None,
     **kwargs,
@@ -83,7 +82,7 @@ def _run(
 
     # Create an output folder inside the cell ranger output folder
     if outputfolder is None:
-        outputfolder = bamfile[0].parent.joinpath("velocyto")
+        outputfolder = bamfile[0].parent.joinpath("velocount")
     if not outputfolder.exists():
         outputfolder.mkdir(parents=True, exist_ok=False)
 
@@ -113,7 +112,6 @@ def _run(
         valid_bcset=valid_bcset,
         umi_extension=umi_extension,
         onefilepercell=onefilepercell,
-        dump_option=dump,
         outputfolder=outputfolder,
     )
 
@@ -230,6 +228,7 @@ def get_barcodes(bcfile, sampleid):
     return valid_bcset, gem_grp
 
 
+# TODO: is this actually needed?
 def get_metadata(sampleid, metadatatable):
     if metadatatable:
         try:

@@ -1,7 +1,7 @@
 from typing import Any
 
-from .constants import MIN_FLANK
-from .read import Read
+from velocount.constants import MIN_FLANK
+from velocount.read import Read
 
 
 class Feature:

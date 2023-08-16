@@ -3,11 +3,11 @@ from typing import Optional, Annotated
 
 import typer
 
-from velocyto.commands._run import _run
-from velocyto.commands.common import UMIExtension, init_logger, logicType, loomdtype
+from velocount.commands._run import _run
+from velocount.commands.common import UMIExtension, init_logger, logicType, loomdtype
 
 app = typer.Typer(
-    name="velocyto-run",
+    name="velocount-run",
     help="Run velocity analysis",
     rich_markup_mode="markdown",
     no_args_is_help=True,
@@ -46,7 +46,7 @@ def run(
         ),
     ] = None,
     sampleid: Annotated[
-        Optional[Path],
+        Optional[str],
         typer.Option(
             "-e",
             "--sampleid",
@@ -153,16 +153,6 @@ def run(
             "expected set uint32 to avoid truncation (default run: uint32)",
         ),
     ] = loomdtype.uint32,
-    dump: Annotated[
-        str,
-        typer.Option(
-            "-d",
-            "--dump",
-            help="For debugging purposes only: it will dump a molecular mapping report to hdf5. --dump N, saves a "
-            "cell every N cells. If p is prepended a more complete (but huge) pickle report is printed",
-            is_flag=True,
-        ),
-    ] = "0",
     verbose: Annotated[
         int,
         typer.Option(
@@ -187,7 +177,7 @@ def run(
         additional_ca = {additional_ca[(i * 2)]: additional_ca[(i * 2) + 1] for i in range(len(additional_ca) // 2)}
 
     return _run(
-        bamfile=bamfile,
+        bam_input=bamfile,
         gtffile=gtffile,
         bcfile=bcfile,
         outputfolder=outputfolder,
@@ -202,7 +192,6 @@ def run(
         test=False,
         samtools_threads=samtools_threads,
         samtools_memory=samtools_memory,
-        dump=dump,
         loom_numeric_dtype=dtype.split(".")[-1],
         verbose=verbose,
         additional_ca=additional_ca,

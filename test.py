@@ -1,7 +1,7 @@
 
-from velocyto.commands._run import _run
-# from velocyto.commands.run10x import run10x
-from velocyto.commands.common import logicType, init_logger
+from velocount.commands._run import _run
+# from velocount.commands.run10x import run10x
+from velocount.commands.common import logicType, init_logger
 from pathlib import Path
 from loguru import logger
 
@@ -31,7 +31,7 @@ def main():
             bam_input=samplefolder.joinpath("subsample_alignments.bam"),
             gtffile=samplefolder.joinpath("genes.gtf"),
             bcfile=samplefolder.joinpath("barcodes.tsv.gz"),
-            outputfolder=samplefolder.joinpath("velocyto"),
+            outputfolder=samplefolder.joinpath("velocount"),
             sampleid="PAM1",
             metadatatable=None,
             repmask=samplefolder.joinpath("grch3810_repeat_mask.gtf"),

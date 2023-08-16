@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# velocyto documentation build configuration file, created by
+# velocount documentation build configuration file, created by
 # sphinx-quickstart on Mon Oct  2 17:26:06 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -25,12 +25,12 @@ sys.path.insert(0, Path("..").absolute())
 sys.path.insert(0, Path("_ext").absolute())
 
 command_list = [
-    ("velocyto", "velocyto --help"),
-    ("run", "velocyto run --help"),
-    ("run10x", "velocyto run10x --help"),
-    ("run_smartseq2", "velocyto run_smartseq2 --help"),
-    ("run_dropest", "velocyto run_dropest --help"),
-    ("dropest_bc_correct", "velocyto tools dropest_bc_correct --help"),
+    ("velocount", "velocount --help"),
+    ("run", "velocount run --help"),
+    ("run10x", "velocount run10x --help"),
+    ("run_smartseq2", "velocount run_smartseq2 --help"),
+    ("run_dropest", "velocount run_dropest --help"),
+    ("dropest_bc_correct", "velocount tools dropest_bc_correct --help"),
 ]
 
 processes = [
@@ -66,7 +66,7 @@ extensions = [
     "releases",
 ]
 
-releases_github_path = "velocyto-team/velocyto.py"  # NOTE Change to "velocyto-team/velocyto.py" upon public release
+releases_github_path = "velocount-team/velocount.py"  # NOTE Change to "velocount-team/velocount.py" upon public release
 releases_unstable_prehistory = (
     True  # If changelog includes “simple” pre-1.0 releases derived from a single branch
 )
@@ -85,7 +85,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "velocyto"
+project = "velocount"
 copyright = "2017, Linnarsson Lab"
 author = "Linnarsson Lab"
 
@@ -95,7 +95,7 @@ author = "Linnarsson Lab"
 #
 # The short X.Y version.
 __version__ = "0.0.0"
-exec(open("../velocyto/_version.py").read())
+exec(open("../velocount/_version.py").read())
 
 version = ".".join(__version__.split(".")[:2])
 # The full version, including alpha/beta/rc tags.
@@ -160,7 +160,7 @@ html_static_path = ["_static"]
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "velocytodoc"
+htmlhelp_basename = "velocountdoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -184,7 +184,7 @@ latex_elements: dict = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "velocyto.tex", "velocyto Documentation", "Linnarsson Lab", "manual"),
+    (master_doc, "velocount.tex", "velocount Documentation", "Linnarsson Lab", "manual"),
 ]
 
 
@@ -192,7 +192,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "velocyto", "velocyto Documentation", [author], 1)]
+man_pages = [(master_doc, "velocount", "velocount Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -203,17 +203,17 @@ man_pages = [(master_doc, "velocyto", "velocyto Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "velocyto",
-        "velocyto Documentation",
+        "velocount",
+        "velocount Documentation",
         author,
-        "velocyto",
+        "velocount",
         "One line description of project.",
         "Miscellaneous",
     ),
 ]
 
 # --- Options for "Edit on GitHub" ---
-edit_on_github_project = "velocyto-team/velocyto.py"
+edit_on_github_project = "velocount-team/velocount.py"
 edit_on_github_branch = "master"  # "marster/doc"
 
 # --- Sort the autodocs by source (currently not workin not sure why)

@@ -8,21 +8,20 @@ from itertools import chain
 from pathlib import Path
 from typing import DefaultDict, Iterable
 
-import h5py
 import numpy as np
 import pysam
 import scipy as sp
 from loguru import logger
 from tqdm.auto import tqdm
 
-from velocyto.constants import LONGEST_INTRON_ALLOWED, LOOM_NUMERIC_DTYPE, PATCH_INDELS, PLACEHOLDER_UMI_LEN
-from velocyto.feature import Feature
-from velocyto.gene_info import GeneInfo
-from velocyto.indexes import FeatureIndex
-from velocyto.logic import Logic
-from velocyto.molitem import Molitem
-from velocyto.read import Read
-from velocyto.transcript_model import TranscriptModel
+from velocount.constants import LONGEST_INTRON_ALLOWED, LOOM_NUMERIC_DTYPE, PATCH_INDELS, PLACEHOLDER_UMI_LEN
+from velocount.feature import Feature
+from velocount.gene_info import GeneInfo
+from velocount.indexes import FeatureIndex
+from velocount.logic import Logic
+from velocount.molitem import Molitem
+from velocount.read import Read
+from velocount.transcript_model import TranscriptModel
 
 import better_exceptions
 
@@ -39,7 +38,6 @@ class ExInCounter:
         valid_bcset: set[str] = None,
         umi_extension: str = "no",
         onefilepercell: bool = False,
-        dump_option: str = "0",
         outputfolder: str = "./",
         loom_numeric_dtype: str = LOOM_NUMERIC_DTYPE,
     ) -> None:
@@ -90,14 +88,6 @@ class ExInCounter:
         # NOTE: by using a default dict and not logger access to keys that do not exist, we might miss bugs!!!
         self.test_flag = None
 
-        if dump_option[0] == "p":
-            self.kind_of_report = "p"
-            self.every_n_report = int(dump_option[1:])
-        else:
-            self.kind_of_report = "h"
-            self.every_n_report = int(dump_option)
-
-        self.report_state = 0
         self.cellbarcode_str = "NULL_BC"  # This value should never be used this is just to initialize it and detect if there are bugs downstream
         self.umibarcode_str = "NULL_UB"  # This value should never be used this is just to initialize it and detect if there are bugs downstream
 
@@ -139,7 +129,7 @@ class ExInCounter:
                     logger.warning("Hard clip was encountered! All mapping are assumed soft clipped")
 
         # Merge segments separated by small insertions and deletions
-        for a, b in enumerate(sorted(hole_to_remove)):  # NOTE maybe sorted is not required realy
+        for a, b in enumerate(sorted(hole_to_remove)):  # NOTE maybe sorted is not required really
             segments[b - a] = (segments.pop(b - a)[0], segments[b - a][1])
 
         return segments, ref_skip, clip5, clip3
@@ -581,7 +571,7 @@ class ExInCounter:
                 try:
                     exonno = regex_exonno.search(tags)[1]
                 except AttributeError as err:
-                    # NOTE: Don't try to release this constraint, velocyto relies on it for safe calculations! Rather make a utility script that does putative annotation separatelly.
+                    # NOTE: Don't try to release this constraint, velocount relies on it for safe calculations! Rather make a utility script that does putative annotation separatelly.
                     raise IOError(
                         "The genome annotation .gtf file provided does not contain exon_number. `exon_number` is described as a mandatory field by GENCODE gtf file specification and we rely on it for easier processing"
                     ) from err
@@ -800,12 +790,7 @@ class ExInCounter:
             # Consider the correct strand
             ii = iif if r.strand == "+" else iir
 
-            # VERBOSE: # Look for overlap between the intervals and the read
-            # VERBOSE: dump_list += ii.mark_overlapping_ivls(r)
             ii.mark_overlapping_ivls(r)
-
-            # VERBOSE: import pickle
-            # VERBOSE: pickle.dump(dump_list, open("dump_mark_overlapping_ivls.pickle", "wb"))
 
     def count(
         self,
@@ -885,7 +870,7 @@ class ExInCounter:
                 )
                 dict_layer_columns, list_bcs = self.count_cell_batch()
 
-                if not self.filter_mode:
+                if self.filter_mode:
                     # The normal case
                     cell_bcs_order += list_bcs
                     for layer_name, layer_columns in dict_layer_columns.items():
@@ -996,182 +981,6 @@ class ExInCounter:
             if (w := (100 * counter[4] / len(molitems))) > 0.0:
                 logger.warning(f"Situation that were not described by the logic in the {w:.1f} of the cases")
 
-        if self.every_n_report and ((self.report_state % self.every_n_report) == 0):
-            if self.kind_of_report == "p":
-                import pickle
-
-                first_cell_batch = next(iter(molitems.keys())).split("$")[0]
-                if not (x := Path("pickle_dump")).exists():
-                    x.mkdir()
-                pickle.dump(
-                    molitems,
-                    open(f"pickle_dump/molitems_dump_{first_cell_batch}.pickle", "wb"),
-                )
-                pickle.dump(
-                    self.reads_to_count,
-                    open(f"pickle_dump/reads_to_count{first_cell_batch}.pickle", "wb"),
-                )
-            else:
-                if not (x := Path(self.outputfolder).joinpath("dump")).exists():
-                    x.mkdir()
-                f = h5py.File(
-                    Path(self.outputfolder).joinpath("dump", f"{self.sampleid}.hdf5")
-                )  # From the docs: Read/write if exists, create otherwise (default)
-
-                if "info/tr_id" not in f:
-                    logger.warning(
-                        "The hdf5 report is less accurate in reporting exactly all the information than the pickle."
-                    )
-                    info_tr_id = []
-                    info_features_gene = []
-                    info_is_last3prime = []
-                    info_is_intron = []
-                    info_start_end = []
-                    info_exino = []
-                    info_strandplus = []
-                    info_chrm = []
-                    for _k, v_dict_tm in self.annotations_by_chrm_strand.items():
-                        for v1_tm in v_dict_tm.values():
-                            for v2_ivl in v1_tm:
-                                info_tr_id.append(v2_ivl.transcript_model.trid)  # “info/ivls/tr_id“,
-                                info_features_gene.append(
-                                    v2_ivl.transcript_model.genename
-                                )  # “info/ivls/features_gene“,
-                                info_is_last3prime.append(v2_ivl.is_last_3prime)  # “info/ivls/is_last3prime“
-                                info_is_intron.append(v2_ivl.kind == 105)  # “info/ivls/is_intron“,
-                                info_start_end.append((v2_ivl.start, v2_ivl.end))  # “info/ivls/feture_start_end“
-                                info_exino.append(v2_ivl.exin_no)  # “info/ivls/exino“
-                                info_strandplus.append(
-                                    v2_ivl.transcript_model.chromstrand[-1:] == "+"
-                                )  # “info/ivls/strandplus“
-                                info_chrm.append(v2_ivl.transcript_model.chromstrand[:-1])  # “info/ivls/chrm“
-
-                    self.inv_tridstart2ix: dict[str, int] = {
-                        f"{info_tr_id[i]}_{info_start_end[i][0]}": i for i in range(len(info_tr_id))
-                    }
-                    f.create_dataset(
-                        "info/tr_id",
-                        data=np.array(info_tr_id, dtype="S24"),
-                        maxshape=(len(info_tr_id),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/features_gene",
-                        data=np.array(info_features_gene, dtype="S15"),
-                        maxshape=(len(info_features_gene),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/is_last3prime",
-                        data=np.array(info_is_last3prime, dtype=bool),
-                        maxshape=(len(info_is_last3prime),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/is_intron",
-                        data=np.array(info_is_intron, dtype=bool),
-                        maxshape=(len(info_is_intron),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/start_end",
-                        data=np.array(info_start_end, dtype=np.int64),
-                        maxshape=(len(info_start_end), 2),
-                        chunks=(500, 2),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/exino",
-                        data=np.array(info_exino, dtype=np.uint8),
-                        maxshape=(len(info_exino),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/strandplus",
-                        data=np.array(info_strandplus, dtype=np.bool),
-                        maxshape=(len(info_strandplus),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/chrm",
-                        data=np.array(info_chrm, dtype="S6"),
-                        maxshape=(len(info_chrm),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-
-                # cell_name = next(iter(molitems.keys())).split("$")[0]
-                pos: DefaultDict[str, list[tuple[int, int]]] = defaultdict(list)
-                mol: DefaultDict[str, list[int]] = defaultdict(list)
-                ixs: DefaultDict[str, list[int]] = defaultdict(list)
-                count_i: int = 0
-                for mol_bc, molitem in molitems.items():
-                    cell_name = mol_bc.split("$")[0]
-                    with contextlib.suppress(StopIteration):
-                        for match in next(iter(molitem.mappings_record.items()))[1]:
-                            mol[cell_name].append(count_i)
-                            pos[cell_name].append(match.segment)
-                            ixs[cell_name].append(
-                                self.inv_tridstart2ix[f"{match.feature.transcript_model.trid}_{match.feature.start}"]
-                            )
-                        count_i += 1
-                # Do the last cell and close the file
-                for cell_name in mol.keys():
-                    posA = np.array(pos[cell_name], dtype=np.int32)
-                    ixsA = np.array(ixs[cell_name], dtype=np.intp)
-                    molA = np.array(mol[cell_name], dtype=np.uint32)
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/pos",
-                        data=posA,
-                        maxshape=posA.shape,
-                        chunks=(min(500, posA.shape[0]), 2),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/ixs",
-                        data=ixsA,
-                        maxshape=ixsA.shape,
-                        chunks=(min(500, ixsA.shape[0]),),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/mol",
-                        data=molA,
-                        maxshape=molA.shape,
-                        chunks=(min(500, molA.shape[0]),),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                f.close()
-
-        self.report_state += 1
         idx2bc = {v: k for k, v in bc2idx.items()}
 
         return dict_layers_columns, [idx2bc[i] for i in range(len(idx2bc))]
@@ -1240,182 +1049,6 @@ class ExInCounter:
             # NOTE I need to generalize this to any set of layers
             # before it was molitem.count(bcidx, spliced, unspliced, ambiguous, self.geneid2ix)
 
-        if self.every_n_report and ((self.report_state % self.every_n_report) == 0):
-            if self.kind_of_report == "p":
-                import pickle
-
-                first_cell_batch = next(iter(molitems.keys())).split("$")[0]
-                if not (x := Path("pickle_dump")).exists():
-                    x.mkdir()
-                pickle.dump(
-                    molitems,
-                    open(f"pickle_dump/molitems_dump_{first_cell_batch}.pickle", "wb"),
-                )
-                pickle.dump(
-                    self.reads_to_count,
-                    open(f"pickle_dump/reads_to_count{first_cell_batch}.pickle", "wb"),
-                )
-            else:
-                if not (x := Path(self.outputfolder).joinpath("dump")).exists():
-                    x.mkdir()
-                f = h5py.File(
-                    Path(self.outputfolder).joinpath("dump", f"{self.sampleid}.hdf5")
-                )  # From the docs: Read/write if exists, create otherwise (default)
-
-                if "info/tr_id" not in f:
-                    logger.warning(
-                        "The hdf5 report is less accurate in reporting exactly all the information than the pickle."
-                    )
-                    info_tr_id = []
-                    info_features_gene = []
-                    info_is_last3prime = []
-                    info_is_intron = []
-                    info_start_end = []
-                    info_exino = []
-                    info_strandplus = []
-                    info_chrm = []
-                    for _, v_dict_tm in self.annotations_by_chrm_strand.items():
-                        for v1_tm in v_dict_tm.values():
-                            for v2_ivl in v1_tm:
-                                info_tr_id.append(v2_ivl.transcript_model.trid)  # “info/ivls/tr_id“,
-                                info_features_gene.append(
-                                    v2_ivl.transcript_model.genename
-                                )  # “info/ivls/features_gene“,
-                                info_is_last3prime.append(v2_ivl.is_last_3prime)  # “info/ivls/is_last3prime“
-                                info_is_intron.append(v2_ivl.kind == 105)  # “info/ivls/is_intron“,
-                                info_start_end.append((v2_ivl.start, v2_ivl.end))  # “info/ivls/feture_start_end“
-                                info_exino.append(v2_ivl.exin_no)  # “info/ivls/exino“
-                                info_strandplus.append(
-                                    v2_ivl.transcript_model.chromstrand[-1:] == "+"
-                                )  # “info/ivls/strandplus“
-                                info_chrm.append(v2_ivl.transcript_model.chromstrand[:-1])  # “info/ivls/chrm“
-
-                    self.inv_tridstart2ix: dict[str, int] = {
-                        f"{info_tr_id[i]}_{info_start_end[i][0]}": i for i in range(len(info_tr_id))
-                    }
-                    f.create_dataset(
-                        "info/tr_id",
-                        data=np.array(info_tr_id, dtype="S24"),
-                        maxshape=(len(info_tr_id),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/features_gene",
-                        data=np.array(info_features_gene, dtype="S15"),
-                        maxshape=(len(info_features_gene),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/is_last3prime",
-                        data=np.array(info_is_last3prime, dtype=bool),
-                        maxshape=(len(info_is_last3prime),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/is_intron",
-                        data=np.array(info_is_intron, dtype=bool),
-                        maxshape=(len(info_is_intron),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/start_end",
-                        data=np.array(info_start_end, dtype=np.int64),
-                        maxshape=(len(info_start_end), 2),
-                        chunks=(500, 2),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/exino",
-                        data=np.array(info_exino, dtype=np.uint8),
-                        maxshape=(len(info_exino),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/strandplus",
-                        data=np.array(info_strandplus, dtype=np.bool),
-                        maxshape=(len(info_strandplus),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/chrm",
-                        data=np.array(info_chrm, dtype="S6"),
-                        maxshape=(len(info_chrm),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-
-                # cell_name = next(iter(molitems.keys())).split("$")[0]
-                pos: DefaultDict[str, list[tuple[int, int]]] = defaultdict(list)
-                mol: DefaultDict[str, list[int]] = defaultdict(list)
-                ixs: DefaultDict[str, list[int]] = defaultdict(list)
-                count_i: int = 0
-                for mol_bc, molitem in molitems.items():
-                    cell_name = mol_bc.split("$")[0]
-                    with contextlib.suppress(StopIteration):
-                        for match in next(iter(molitem.mappings_record.items()))[1]:
-                            mol[cell_name].append(count_i)
-                            pos[cell_name].append(match.segment)
-                            ixs[cell_name].append(
-                                self.inv_tridstart2ix[f"{match.feature.transcript_model.trid}_{match.feature.start}"]
-                            )
-                        count_i += 1
-                # Do the last cell and close the file
-                for cell_name in mol.keys():
-                    posA = np.array(pos[cell_name], dtype=np.int32)
-                    ixsA = np.array(ixs[cell_name], dtype=np.intp)
-                    molA = np.array(mol[cell_name], dtype=np.uint32)
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/pos",
-                        data=posA,
-                        maxshape=posA.shape,
-                        chunks=(min(500, posA.shape[0]), 2),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/ixs",
-                        data=ixsA,
-                        maxshape=ixsA.shape,
-                        chunks=(min(500, ixsA.shape[0]),),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/mol",
-                        data=molA,
-                        maxshape=molA.shape,
-                        chunks=(min(500, molA.shape[0]),),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                f.close()
-
-        self.report_state += 1
         idx2bc = {v: k for k, v in bc2idx.items()}
 
         return dict_layers_columns, [idx2bc[i] for i in range(len(idx2bc))]
@@ -1493,200 +1126,9 @@ class ExInCounter:
             # NOTE I need to generalize this to any set of layers
             # before it was molitem.count(bcidx, spliced, unspliced, ambiguous, self.geneid2ix)
 
-        if self.every_n_report and ((self.report_state % self.every_n_report) == 0):
-            if self.kind_of_report == "p":
-                import pickle
-
-                first_cell_batch = next(iter(molitems.keys())).split("$")[0]
-                if not (x := Path("pickle_dump")).exists():
-                    x.mkdir()
-                pickle.dump(
-                    molitems,
-                    open(f"pickle_dump/molitems_dump_{first_cell_batch}.pickle", "wb"),
-                )
-                pickle.dump(
-                    self.reads_to_count,
-                    open(f"pickle_dump/reads_to_count{first_cell_batch}.pickle", "wb"),
-                )
-            else:
-                if not (x := Path(self.outputfolder).joinpath("dump")).exists():
-                    x.mkdir()
-                f = h5py.File(
-                    Path(self.outputfolder).joinpath("dump", f"{self.sampleid}.hdf5")
-                )  # From the docs: Read/write if exists, create otherwise (default)
-
-                if "info/tr_id" not in f:
-                    logger.warning(
-                        "The hdf5 report is less accurate than the pickle in the completeness of the info it is reporting."
-                    )
-                    info_tr_id = []
-                    info_features_gene = []
-                    info_is_last3prime = []
-                    info_is_intron = []
-                    info_start_end = []
-                    info_exino = []
-                    info_strandplus = []
-                    info_chrm = []
-                    for _k, v_dict_tm in self.annotations_by_chrm_strand.items():
-                        for v1_tm in v_dict_tm.values():
-                            for v2_ivl in v1_tm:
-                                info_tr_id.append(v2_ivl.transcript_model.trid)  # “info/ivls/tr_id“,
-                                info_features_gene.append(
-                                    v2_ivl.transcript_model.genename
-                                )  # “info/ivls/features_gene“,
-                                info_is_last3prime.append(v2_ivl.is_last_3prime)  # “info/ivls/is_last3prime“
-                                info_is_intron.append(v2_ivl.kind == 105)  # “info/ivls/is_intron“,
-                                info_start_end.append((v2_ivl.start, v2_ivl.end))  # “info/ivls/feture_start_end“
-                                info_exino.append(v2_ivl.exin_no)  # “info/ivls/exino“
-                                info_strandplus.append(
-                                    v2_ivl.transcript_model.chromstrand[-1:] == "+"
-                                )  # “info/ivls/strandplus“
-                                info_chrm.append(v2_ivl.transcript_model.chromstrand[:-1])  # “info/ivls/chrm“
-
-                    self.inv_tridstart2ix: dict[str, int] = {
-                        f"{info_tr_id[i]}_{info_start_end[i][0]}": i for i in range(len(info_tr_id))
-                    }
-                    f.create_dataset(
-                        "info/tr_id",
-                        data=np.array(info_tr_id, dtype="S24"),
-                        maxshape=(len(info_tr_id),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/features_gene",
-                        data=np.array(info_features_gene, dtype="S15"),
-                        maxshape=(len(info_features_gene),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/is_last3prime",
-                        data=np.array(info_is_last3prime, dtype=bool),
-                        maxshape=(len(info_is_last3prime),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/is_intron",
-                        data=np.array(info_is_intron, dtype=bool),
-                        maxshape=(len(info_is_intron),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/start_end",
-                        data=np.array(info_start_end, dtype=np.int64),
-                        maxshape=(len(info_start_end), 2),
-                        chunks=(500, 2),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/exino",
-                        data=np.array(info_exino, dtype=np.uint8),
-                        maxshape=(len(info_exino),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/strandplus",
-                        data=np.array(info_strandplus, dtype=np.bool),
-                        maxshape=(len(info_strandplus),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        "info/chrm",
-                        data=np.array(info_chrm, dtype="S6"),
-                        maxshape=(len(info_chrm),),
-                        chunks=(500,),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-
-                # cell_name = next(iter(molitems.keys())).split("$")[0]
-                pos: DefaultDict[str, list[tuple[int, int]]] = defaultdict(list)
-                mol: DefaultDict[str, list[int]] = defaultdict(list)
-                ixs: DefaultDict[str, list[int]] = defaultdict(list)
-                count_i: int = 0
-                for mol_bc, molitem in molitems.items():
-                    cell_name = mol_bc.split("$")[0]
-                    with contextlib.suppress(StopIteration):
-                        for match in next(iter(molitem.mappings_record.items()))[1]:
-                            mol[cell_name].append(count_i)
-                            pos[cell_name].append(match.segment)
-                            ixs[cell_name].append(
-                                self.inv_tridstart2ix[f"{match.feature.transcript_model.trid}_{match.feature.start}"]
-                            )
-                        count_i += 1
-                # Do the last cell and close the file
-                for cell_name in mol.keys():
-                    posA = np.array(pos[cell_name], dtype=np.int32)
-                    ixsA = np.array(ixs[cell_name], dtype=np.intp)
-                    molA = np.array(mol[cell_name], dtype=np.uint32)
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/pos",
-                        data=posA,
-                        maxshape=posA.shape,
-                        chunks=(min(500, posA.shape[0]), 2),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/ixs",
-                        data=ixsA,
-                        maxshape=ixsA.shape,
-                        chunks=(min(500, ixsA.shape[0]),),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                    f.create_dataset(
-                        f"cells/{self.sampleid}_{cell_name}/mol",
-                        data=molA,
-                        maxshape=molA.shape,
-                        chunks=(min(500, molA.shape[0]),),
-                        compression="gzip",
-                        shuffle=False,
-                        compression_opts=4,
-                    )
-                f.close()
-
-        self.report_state += 1
         idx2bc = {v: k for k, v in bc2idx.items()}
 
         return dict_layers_columns, [idx2bc[i] for i in range(len(idx2bc))]
-
-    def pcount(
-        self,
-        samfile: str,
-        cell_batch_size: int = 50,
-        molecules_report: bool = False,
-        n_processes: int = 4,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
-        """Do the counting of molecules in parallel using multiprocessing"""
-
-        raise NotImplementedError("Implement this using multiprocessiong")
-
-    def pcount_cell_batch(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
-        """It performs molecule counting for the current batch of cells"""
-        raise NotImplementedError("This will be a used by .pcount")
 
 
 def reverse(strand: str) -> str:

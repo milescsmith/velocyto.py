@@ -1,5 +1,5 @@
-from .constants import SPLIC_INACUR
-from .feature import Feature
+from velocount.constants import SPLIC_INACUR
+from velocount.feature import Feature
 
 
 class SegmentMatch:

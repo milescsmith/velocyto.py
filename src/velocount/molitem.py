@@ -1,26 +1,8 @@
 from collections import defaultdict
 from typing import Any, DefaultDict
 
-from .segment_match import SegmentMatch
-from .transcript_model import TranscriptModel
-
-
-def dictionary_union(d1: DefaultDict[Any, list], d2: DefaultDict[Any, list]) -> DefaultDict[Any, list]:
-    """set union (|) operation on default dicitonary
-
-    Arguments
-    ---------
-    d1: defaultdict
-        First default dict
-    d2: defaultdict
-        Second default dict
-    Returns
-    -------
-    A dictionary with the key the set union of the keys.
-    If same key is present the entry will be combined using __add__
-    """
-    keys_set = set(d1) | set(d2)
-    return defaultdict(list, {k: d1[k] + d2[k] for k in keys_set})
+from velocount.segment_match import SegmentMatch
+from velocount.transcript_model import TranscriptModel
 
 
 def dictionary_intersect(d1: DefaultDict[Any, list], d2: DefaultDict[Any, list]) -> DefaultDict[Any, list]:

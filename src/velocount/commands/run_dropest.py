@@ -4,11 +4,11 @@ from typing import Optional, Annotated
 import typer
 from loguru import logger
 
-from velocyto.commands._run import _run
-from velocyto.commands.common import init_logger, logicType, loomdtype
+from velocount.commands._run import _run
+from velocount.commands.common import init_logger, logicType, loomdtype
 
 app = typer.Typer(
-    name="velocyto-dropest",
+    name="velocount-dropest",
     help="Run velocity analysis on DropEst data",
     rich_markup_mode="markdown",
     no_args_is_help=True,
@@ -29,7 +29,7 @@ def run_dropest(
         typer.Option(
             "-b",
             "--bcfile",
-            help="Valid barcodes file, to filter the bam. If --bcfile is not specified the file will be searched in the default position outputted by ``velocyto tools dropest_bc_correct``. Otherwise an error will be thrown",
+            help="Valid barcodes file, to filter the bam. If --bcfile is not specified the file will be searched in the default position outputted by ``velocount tools dropest_bc_correct``. Otherwise an error will be thrown",
             resolve_path=True,
             file_okay=True,
             dir_okay=False,
@@ -92,14 +92,6 @@ def run_dropest(
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are expected set uint32 to avoid truncation",
         ),
     ] = loomdtype.uint32,
-    dump: Annotated[
-        str,
-        typer.Option(
-            "-d",
-            "--dump",
-            help="For debugging purposes only: it will dump a molecular mapping report to hdf5. --dump N, saves a cell every N cells. If p is prepended a more complete (but huge) pickle report is printed",
-        ),
-    ] = "0",
     verbose: Annotated[
         int,
         typer.Option(
@@ -139,7 +131,7 @@ def run_dropest(
 
     if "correct" not in bamfile:
         logger.warning(
-            "The file you are using does not start with the prefix ``correct_`` so it might not be the output of ``velocyto tools dropest_bc_correct``."
+            "The file you are using does not start with the prefix ``correct_`` so it might not be the output of ``velocount tools dropest_bc_correct``."
         )
         logger.info(
             "The program will run despite the warning but be aware of the possible consequences of not correcting the barcodes"
@@ -161,7 +153,6 @@ def run_dropest(
         samtools_threads=samtools_threads,
         samtools_memory=samtools_memory,
         loom_numeric_dtype=str(dtype).split(".")[-1],
-        dump=dump,
         verbose=verbose,
         additional_ca=additional_ca,
     )

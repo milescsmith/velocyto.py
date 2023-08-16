@@ -1,4 +1,4 @@
-"""velocyto"""
+"""velocount"""
 from importlib.metadata import PackageNotFoundError, version
 
 try:

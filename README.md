@@ -1,4 +1,19 @@
-# Velocyto [![Build Status](https://travis-ci.org/velocyto-team/velocyto.py.svg?branch=master)](https://travis-ci.org/velocyto-team/velocyto.py)
-This repo contains the source code for `the velocyto.py` library.
+# Velocount
 
-For more information consult the [velocyto.py documentation](http://velocyto.org/velocyto.py/index.html).
+Count spliced and unspliced reads from single-cell RNA-seq for downstream RNA velocity analysis.
+This was forked from the original [velocyto.py](https://github.com/velocyto-team/velocyto.py) repository, simplified
+to remove any code related to analysis, and updated to use versioned Python libraries.
+
+This probably *should* still work on data from Smart-seq2 or general scRNA-seq data, but I have **only** tested this with 
+data from 10X Genomics assays.
+
+At current, install using:
+```
+pip install git+https://github.com/milescsmith/velocyto.py@simplify
+```
+
+Run
+```
+velocount run --help
+```
+for more information on how to run.

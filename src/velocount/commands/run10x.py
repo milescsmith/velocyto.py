@@ -4,8 +4,8 @@ from typing import Optional, Annotated
 import typer
 from loguru import logger
 
-from velocyto.commands._run import _run
-from velocyto.commands.common import init_logger, logicType, loomdtype
+from velocount.commands._run import _run
+from velocount.commands.common import init_logger, logicType, loomdtype
 
 app = typer.Typer(
     help="Run velocity analysis on 10X Genomics data",
@@ -111,15 +111,6 @@ def run10x(
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are expected set uint32 to avoid truncation",
         ),
     ] = loomdtype.uint16,  # why is this even an option?
-    dump: Annotated[
-        str,
-        typer.Option(
-            "-d",
-            "--dump",
-            help="For debugging purposes only: it will dump a molecular mapping report to hdf5. --dump N, saves a cell every N cells. If p is prepended a more complete (but huge) pickle report is printed.",
-            is_flag=True,
-        ),
-    ] = "0",
     verbose: Annotated[
         int,
         typer.Option(
@@ -141,8 +132,6 @@ def run10x(
     """
 
     init_logger(verbose)
-
-    # additional_ca = {ctx[(i*2)]: ctx[(i*2)+1] for i in range(len(ctx)//2)}
 
     # Check that the 10X analysis was run successfully
     if not samplefolder.joinpath("_log").is_file():
@@ -171,7 +160,7 @@ def run10x(
         logger.error(f"Can not locate the barcode file! Please check {barcode_file}")
     bcfile = barcode_file
 
-    outputfolder = samplefolder.joinpath("velocyto")
+    outputfolder = samplefolder.joinpath("velocount")
     sampleid = samplefolder.stem
     if outputfolder.joinpath(f"{sampleid}.h5ad").exists():
         raise AssertionError("The output already exist. Aborted!")
@@ -192,7 +181,6 @@ def run10x(
         test=False,
         samtools_threads=samtools_threads,
         samtools_memory=samtools_memory,
-        dump=dump,
         loom_numeric_dtype=str(dtype).split(".")[-1],
         verbose=verbose,
         is_10X=True,

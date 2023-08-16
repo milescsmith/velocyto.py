@@ -3,7 +3,7 @@ from typing import Union
 
 import numpy as np
 
-from .molitem import Molitem
+from velocount.molitem import Molitem
 
 
 class Logic(metaclass=abc.ABCMeta):

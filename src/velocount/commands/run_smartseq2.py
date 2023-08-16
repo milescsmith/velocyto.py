@@ -3,11 +3,11 @@ from typing import Optional, Annotated
 
 import typer
 
-from velocyto.commands._run import _run
-from velocyto.commands.common import init_logger, loomdtype
+from velocount.commands._run import _run
+from velocount.commands.common import init_logger, loomdtype
 
 app = typer.Typer(
-    name="velocyto-smartseq2",
+    name="velocount-smartseq2",
     help="Run velocity analysis on SmartSeq2 data",
     rich_markup_mode="markdown",
     no_args_is_help=True,
@@ -75,15 +75,6 @@ def run_smartseq2(
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are expected set uint32 to avoid truncation",
         ),
     ] = loomdtype.uint32,
-    dump: Annotated[
-        str,
-        typer.Option(
-            "-d",
-            "--dump",
-            help="For debugging purposes only: it will dump a molecular mapping report to hdf5. --dump N, saves a cell every N cells. If p is prepended a more complete (but huge) pickle report is printed",
-            is_flag=True,
-        ),
-    ] = "0",
     verbose: Annotated[
         int,
         typer.Option(
@@ -122,7 +113,6 @@ def run_smartseq2(
         test=False,
         samtools_threads=1,
         samtools_memory="4G",
-        dump=dump,
         loom_numeric_dtype=str(dtype).split(".")[-1],
         verbose=verbose,
         additional_ca=additional_ca,

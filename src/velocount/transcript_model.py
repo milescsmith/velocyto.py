@@ -1,8 +1,8 @@
 from typing import Any
 
-from .constants import LONGEST_INTRON_ALLOWED, MIN_FLANK
-from .feature import Feature
-from .read import Read
+from velocount.constants import LONGEST_INTRON_ALLOWED, MIN_FLANK
+from velocount.feature import Feature
+from velocount.read import Read
 
 
 class TranscriptModel:

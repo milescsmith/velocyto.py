@@ -1,5 +1,15 @@
 # Changelog
 
+** [1.0.0]
+
+*** Changed
+
+- First pass at removing all code not related to transcript counting
+  - velocount.py is one of two options for preprocessing prior to downstream analysis.
+  There is (was), however, a lot of code around for performing analysis using velocount itselt.  Makes sense to me (as someone that is not going to use velocount for analysis) to separate the code
+- Removed many dependencies such as loompy, numba, h5py, matplotlib
+- Renamed to 'velocount' to avoid confusion.
+
 ** [0.31.0]
 
 *** Changed
@@ -32,7 +42,7 @@
 - Updated to require Python 3.10 as minimum version
 - Updated to use Typer 0.9.0
 - Updated dependencies
-- Pulled a lot out of `velocyto.commands._run()` into separate functions
+- Pulled a lot out of `velocount.commands._run()` into separate functions
 - Removed ability to add UMAP and cluster info to the loom file - that will be regenerated in other software, so why?
 
 ** [0.28.0] - 2023-02-24

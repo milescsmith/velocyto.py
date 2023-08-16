@@ -1,70 +1,11 @@
 from collections import defaultdict
 from typing import Optional
 
-from loguru import logger
-
-from velocyto.constants import MATCH_INSIDE, MATCH_OVER3END, MATCH_OVER5END, MIN_FLANK
-from velocyto.feature import Feature
-from velocyto.read import Read
-from velocyto.segment_match import SegmentMatch
-from velocyto.transcript_model import TranscriptModel
-
-
-class TransciptsIndex:
-    __slots__ = ["transcipt_models", "tidx", "maxtidx"]
-    """Search help class used to find the transcipt models that a read is spanning/contained into"""
-
-    def __init__(self, trascript_models: list[TranscriptModel]) -> None:
-        self.transcipt_models = trascript_models
-        # self.transcipt_models.sort()
-        self.tidx = 0  # index of the current interval
-        self.maxtidx = len(trascript_models) - 1
-
-    @property
-    def scan_not_terminated(self) -> bool:
-        """Return false when all the chromosome has been scanned"""
-        return self.tidx < self.maxtidx
-
-    def find_overlapping_trascript_models(self, read: Read) -> set[TranscriptModel]:
-        """Finds all the Transcript models the Read overlaps with
-
-        Args
-        ----
-        read: Read
-            the read object to be analyzed
-
-        Returns
-        -------
-        matched_transcripts: set of `TranscriptModel`
-            TranscriptModel the read is overlapping with and values the kind of overlapping
-            it is one of MATCH_INSIDE (1), MATCH_OVER5END (2), MATCH_OVER3END (4)
-
-        """
-        matched_transcripts: set[TranscriptModel] = set()
-        if len(self.transcipt_models) == 0:
-            logger.error(f"TransciptsIndex {self} contains no intervals")
-            return matched_transcripts
-
-        tmodel = self.transcipt_models[self.tidx]  # current transcript model
-        # Move forward until we find the position we will never search left of again (because the reads are ordered)
-        while self.scan_not_terminated and tmodel.ends_upstream_of(read):
-            # move to the next interval
-            self.tidx += 1
-            tmodel = self.transcipt_models[self.tidx]
-
-        # Loop trough the mapping segments of a read (e.g. just one of an internal exon, generally 2 for a splice or intron)
-        for segment in read.segments:
-            # Local search for each segment move a little forward (this just moves a coupple of intervals)
-            i = self.tidx
-            while i < self.maxtidx and tmodel.starts_upstream_of(segment):
-                # matchtype = 0  # No match
-                if tmodel.intersects(segment):
-                    # NOTE: do we need to append all the model or the id would be enough?
-                    matched_transcripts.add(tmodel)
-                # move to the next transcript model
-                i += 1
-                tmodel = self.transcipt_models[i]
-        return matched_transcripts
+from velocount.constants import MATCH_INSIDE, MATCH_OVER3END, MATCH_OVER5END, MIN_FLANK
+from velocount.feature import Feature
+from velocount.read import Read
+from velocount.segment_match import SegmentMatch
+from velocount.transcript_model import TranscriptModel
 
 
 class FeatureIndex:

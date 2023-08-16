@@ -6,7 +6,7 @@ import typer
 from loguru import logger
 
 app = typer.Typer(
-    name="velocyto-run",
+    name="velocount-run",
     help="Correct barcodes for DropEst data",
     rich_markup_mode="markdown",
     no_args_is_help=True,
@@ -45,7 +45,7 @@ def dropest_bc_correct(
 
         from ..r_interface import convert_r_obj
     except Exception:
-        msg = "A problem was encountered importing rpy2. To run this `velocyto tools` rpy2 and R need to be installed (the use conda is recommended)"
+        msg = "A problem was encountered importing rpy2. To run this `velocount tools` rpy2 and R need to be installed (the use conda is recommended)"
         ImportError(msg)
 
     parentpath = bamfilepath.parent
