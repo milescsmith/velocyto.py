@@ -71,9 +71,7 @@ class ExInCounter:
                 self.umi_extract = self._placeolder_umi
             case _:
                 if not umi_extension.endswith("bp"):
-                    raise ValueError(
-                        f"umi_extension {umi_extension} is not allowed. Use `no`, `Gene` or `[N]bp`"
-                    )
+                    raise ValueError(f"umi_extension {umi_extension} is not allowed. Use `no`, `Gene` or `[N]bp`")
                 self.umi_bp = int(umi_extension[:-2])
                 self.umi_extract = self._extension_Nbp
 
@@ -102,7 +100,6 @@ class ExInCounter:
         self.report_state = 0
         self.cellbarcode_str = "NULL_BC"  # This value should never be used this is just to initialize it and detect if there are bugs downstream
         self.umibarcode_str = "NULL_UB"  # This value should never be used this is just to initialize it and detect if there are bugs downstream
-
 
     @staticmethod
     def parse_cigar_tuple(cigartuples: list[tuple], pos: int) -> tuple[list[tuple[int, int]], bool, int, int]:
@@ -905,23 +902,21 @@ class ExInCounter:
                 self.cell_batch = set()
                 # Drop the counted reads (If there are no other reference to it) and reset the indexes to 0
                 self.reads_to_count = []
-                for (chromstrand_key, _,) in self.annotations_by_chrm_strand.items():
+                for (
+                    chromstrand_key,
+                    _,
+                ) in self.annotations_by_chrm_strand.items():
                     self.feature_indexes[chromstrand_key].reset()
-                for (chromstrand_key, _,) in self.mask_ivls_by_chromstrand.items():
+                for (
+                    chromstrand_key,
+                    _,
+                ) in self.mask_ivls_by_chromstrand.items():
                     self.mask_indexes[chromstrand_key].reset()
 
             if r is not None:
                 self.cell_batch.add(r.bc)
                 self.reads_to_count.append(r)
-        # NOTE: Since iter_allignments is yielding None at each file change (even when only one bamfile) I do not need the following
-        # logger.debug(f"Counting molecule for last batch of {len(self.cell_batch)}, total reads {len(self.reads_to_count)}")
-        # spliced, unspliced, ambiguous, list_bcs = self.count_cell_batch()
-        # cell_bcs_order += list_bcs
-        # list_spliced_arrays.append(spliced)
-        # list_unspliced_arrays.append(unspliced)
-        # list_ambiguous_arrays.append(ambiguous)
-        # self.cell_batch = set()
-        # self.reads_to_count = []
+
         logger.debug("Counting done!")
         return dict_list_arrays, cell_bcs_order
 

@@ -1,5 +1,11 @@
 # Changelog
 
+** [0.31.0]
+
+*** Changed
+
+- Anndata now uses gene symbols instead of ensembl geneids for var_names
+
 ** [0.30.1] and [0.30.2] - 2023-08-15
 
 *** Fixed

@@ -101,9 +101,6 @@ def _run(
     else:
         valid_bcset, gem_grp = get_barcodes(bcfile, sampleid)
 
-    # Get metadata from sample sheet
-    sample = get_metadata(sampleid, metadatatable)
-
     # Initialize Exon-Intron Counter with the logic and valid barcodes (need to do it now to peek)
     if without_umi:
         if umi_extension != "no":
@@ -128,19 +125,6 @@ def _run(
     else:
         bamfile_cellsorted = [f"{bmf.parent.joinpath(f'cellsorted_{bmf.name}')}" for bmf in bamfile]
 
-    # if test:  # NOTE: Remove this after finishing testing, the only purpuso was to save 15min in the debugging process
-    #     logger.warning("This place is for developer only!")
-
-    #     if Path("exincounter_dump.pickle").exists():
-    #         logger.debug("exincounter_dump.pickle is being loaded")
-    #         exincounter = joblib.load(open("exincounter_dump.pickle", "rb"))
-    #     else:
-    #         logger.debug("exincounter_dump.pickle was not found")
-    #         logger.debug("Dumping exincounter_dump.pickle BEFORE markup")
-    #         joblib.dump(exincounter, open("exincounter_dump.pickle", "wb"))
-    #         exincounter.mark_up_introns(bamfile=bamfile, multimap=multimap)
-    #     check_end_process = False
-    # else:
     # I need to peek into the bam file to know wich cell barcode flag should be used
     if onefilepercell and without_umi:
         tagname = "NOTAG"
@@ -176,10 +160,6 @@ def _run(
     )  # NOTE: we would avoid some millions of if statements evaluations if we write two function count and count_with output
     dict_list_arrays, cell_bcs_order = results
 
-    ########################
-    #         Output       #
-    ########################
-
     # Prepare the loom file output
     if not exincounter.filter_mode:
         valid_bcset = exincounter.valid_bcset  # without -1
@@ -188,58 +168,21 @@ def _run(
         valid_cellid_list = np.array([f"{sampleid}:{v_bc}" for v_bc in valid_bcs_list])  # with sampleid and with -1
         logger.debug(f"Example of barcode: {valid_bcs_list[0]} and cell_id: {valid_cellid_list[0]}")
 
-    # Why do we need to read this in and add it to the loom file?  It is going to all get recalculated anyway
-    # # If this data is from a 10X run, it is possible that additional_ca has data from cells that are present in the TSNE and Cluster files
-    # # but not present in the count matrix.   these are not removed prior to attempting to create the loom file, this whole process will fail
-    # if len(cell_bcs_order) < len(additional_ca["_X"]) and kwargs["is_10X"] is True:
-    #     umap_file = list(
-    #         Path(kwargs["samplefolder"], "outs", "per_sample_outs").rglob(
-    #             "analysis/umap/gene_expression_2_components/projection.csv",
-    #         )
-    #     )[0]
-    #     if umap_file.exists():
-    #         umap_pd = extract_cellranger_umap(umap_file, cell_bcs_order)
-    #         additional_ca["_X"] = umap_pd["UMAP-1"].to_numpy()
-    #         additional_ca["_Y"] = umap_pd["UMAP-1"].to_numpy()
+    obs_df = pd.DataFrame(index=np.array([f"{sampleid}:{v_bc}{gem_grp}" for v_bc in cell_bcs_order]))
 
-    #     clusters_file = list(
-    #         Path(kwargs["samplefolder"], "outs", "per_sample_outs").rglob(
-    #             "analysis/clustering/gene_expression_graphclust/clusters.csv",
-    #         )
-    #     )[0]
-    #     if clusters_file.exists():
-    #         clusters_pd = extract_cellranger_umap(clusters_file, cell_bcs_order)
-    #         additional_ca["Clusters"] = clusters_pd["Cluster"].to_numpy(dtype="int16") - 1
-
-    # ca = {"CellID": np.array([f"{sampleid}:{v_bc}{gem_grp}" for v_bc in cell_bcs_order])}
-    obs_df = pd.DataFrame(
-        index = np.array([f"{sampleid}:{v_bc}{gem_grp}" for v_bc in cell_bcs_order])
-    )
-    # for key, value in sample.items():
-    #     ca[key] = np.full(len(cell_bcs_order), value)
-
-    # Save to loom file
-    outfile = outputfolder.joinpath(f"{sampleid}.h5ad")
-    logger.debug(f"Generating output file {outfile}")
-
-    # row attributes
-    atr_table = (
-        ("Gene", "genename", str),
-        ("Accession", "geneid", str),
-        ("Chromosome", "chrom", str),
-        ("Strand", "strand", str),
-        ("Start", "start", int),
-        ("End", "end", int),
-    )
-
+    # var dataframe attributes
     logger.debug("Collecting row attributes")
-    ra = {}
-    for name_col_attr, name_obj_attr, dtyp in atr_table:
-        tmp_array = np.zeros((len(exincounter.genes),), dtype=object)  # type: np.ndarray
-        for gene_id, gene_info in exincounter.genes.items():
-            tmp_array[exincounter.geneid2ix[gene_id]] = getattr(gene_info, name_obj_attr)
-        ra[name_col_attr] = tmp_array.astype(dtyp)
-    var_df = pd.DataFrame(ra, index=exincounter.genes)
+    var_df = pd.DataFrame(
+        {
+            "Gene": [exincounter.genes[k].genename for k in exincounter.genes],
+            "Accession": [exincounter.genes[k].geneid for k in exincounter.genes],
+            "Chromosome": [exincounter.genes[k].chrom for k in exincounter.genes],
+            "Strand": [exincounter.genes[k].strand for k in exincounter.genes],
+            "Start": [exincounter.genes[k].start for k in exincounter.genes],
+            "End": [exincounter.genes[k].end for k in exincounter.genes],
+        },
+        index=[exincounter.genes[k].genename for k in exincounter.genes],
+    )
 
     logger.debug("Generating data table")
     layers: dict[str, np.ndarray] = {
@@ -247,25 +190,16 @@ def _run(
         for layer_name in logic_obj.layers
     }
     total = reduce(np.add, layers.items())
-    # Honestly, why are we messing with loom here?  Why not go straight into an anndata object?
-    # logger.debug("Writing loom file")
-    # try:
-    #     layers[""] = layers["spliced"]
-    #     loompy.create(
-    #         filename=str(outfile),
-    #         layers=layers,
-    #         row_attrs=ra,
-    #         col_attrs=ca,
-    #     )
-    #     logger.debug(f"Successfully wrote to {outfile}")
+    outfile = outputfolder.joinpath(f"{sampleid}.h5ad")
     logger.debug(f"Creating anndata object at {outfile}")
+
     try:
         adata = ad.AnnData(
             X=total[1],
             obs=obs_df,
             var=var_df,
             layers=layers,
-            )
+        )
         adata.write_h5ad(str(outfile))
 
     except TypeError as e:
@@ -364,7 +298,6 @@ def load_annotations(gtffile, exincounter):
     logger.info(f"Load the annotation from {gtffile}")
     features, chrm_strands = exincounter.read_transcriptmodels(gtffile)
     logger.debug(f"Generated {features} features corresponding to {chrm_strands} chromosome strands from {gtffile}")
-
 
 
 def resolve_sampleid(sampleid, metadatatable, onefilepercell, bamfile, multi):
