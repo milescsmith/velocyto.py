@@ -980,15 +980,16 @@ class ExInCounter:
             # initialize np.ndarray
         shape = (len(self.geneid2ix), len(self.cell_batch))
 
-        # dict_layers_columns: dict[str, np.ndarray] = {}
-        dict_layers_columns: dict[str, sp.sparse.lil_array] = {
-            layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype) for layer_name in self.logic.layers
+        dict_layers_columns: dict[str, np.ndarray] = {
+            layer_name: np.zeros(shape, dtype=self.loom_numeric_dtype, order="C")
+            for layer_name in self.logic.layers
         }
-        # for layer_name in self.logic.layers:
-        #     # dict_layers_columns[layer_name] = np.zeros(shape, dtype=self.loom_numeric_dtype, order="C")
-        #     dict_layers_columns[layer_name] = sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
+        # dict_layers_columns: dict[str, sp.sparse.lil_array] = {
+        #     layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype) for layer_name in self.logic.layers
+        # }
+            # dict_layers_columns[layer_name] = sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
 
-        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch)), strict=True))
+        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch))))
         # After the whole file has been read, do the actual counting
         failures = 0
         counter: Counter = Counter()
@@ -1246,10 +1247,17 @@ class ExInCounter:
         shape = (len(self.geneid2ix), len(self.cell_batch))
 
         dict_layers_columns: dict[str, np.ndarray] = {
-            layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
+            layer_name: np.zeros(shape, dtype=self.loom_numeric_dtype, order="C")
             for layer_name in self.logic.layers
         }
-        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch)), strict=True))
+        # for layer_name in self.logic.layers:
+        #     dict_layers_columns[layer_name] = np.zeros(shape, dtype=self.loom_numeric_dtype, order="C")
+
+        # dict_layers_columns: dict[str, np.ndarray] = {
+        #     layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
+        #     for layer_name in self.logic.layers
+        # }
+        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch))))
         # After the whole file has been read, do the actual counting
         for bcumi, molitem in molitems.items():
             bc = bcumi.split("$")[0]  # extract the bc part from the bc+umi
@@ -1501,10 +1509,15 @@ class ExInCounter:
         shape = (len(self.geneid2ix), len(self.cell_batch))
 
         dict_layers_columns: dict[str, np.ndarray] = {
-            layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
+            layer_name: np.zeros(shape, dtype=self.loom_numeric_dtype, order="C")
             for layer_name in self.logic.layers
         }
-        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch)), strict=True))
+
+        # dict_layers_columns: dict[str, np.ndarray] = {
+        #     layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
+        #     for layer_name in self.logic.layers
+        # }
+        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch))))
         # After the whole file has been read, do the actual counting
         for bcumi, molitem in molitems.items():
             bc = bcumi.split("$")[0]  # extract the bc part from the bc+umi

@@ -39,7 +39,10 @@ tqdm = "^4.64.1"
 [tool.poetry.extras]
 R = ["rpy2"]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+memray = "^1.4.0"
+memory-profiler = "^0.60.0"
+ruff = "^0.0.252"
 black = "^22.6.0"
 isort = "^5.10.1"
 mypy = "^0.961"
@@ -47,11 +50,6 @@ flake8 = "^4.0.1"
 ipython = "^8.4.0"
 nox = "^2022.1.7"
 nox-poetry = "^1.0.1"
-
-[tool.poetry.group.dev.dependencies]
-memray = "^1.4.0"
-memory-profiler = "^0.60.0"
-ruff = "^0.0.252"
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "cython", "numpy", "toml", "setuptools"]

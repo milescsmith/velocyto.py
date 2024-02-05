@@ -15,7 +15,7 @@ import pandas as pd
 import scipy as sp
 from loguru import logger
 
-from .. import version
+from .. import __version__
 from ..constants import BAM_COMPRESSION
 from ..counter import ExInCounter
 from ..metadata import MetadataCollection
@@ -29,7 +29,7 @@ def _run(
     bcfile: Path,
     outputfolder: Path,
     sampleid: str,
-    metadatatable: str,
+    metadatatable: Path,
     repmask: str,
     onefilepercell: bool,
     logic: str,
@@ -54,7 +54,6 @@ def _run(
 
     NOTE: it is keyword only argument function
     """
-
     ########################
     #    Resolve Inputs    #
     ########################
@@ -112,7 +111,7 @@ def _run(
     if not outputfolder.exists():
         outputfolder.mkdir()
 
-    if logic not in logicType:
+    if logic not in logicType.__members__:
         raise ValueError(f"{logic} is not a valid logic. Choose one among {', '.join([_.value for _ in logicType])}")
     logger.debug(f"Using logic: {logic}")
     logic = choose_logic(logic)
@@ -152,7 +151,7 @@ def _run(
                 sample = sample[0].dict
             logger.debug(f"Collecting column attributes from {metadatatable}")
         except (NameError, TypeError):
-            logger.warn("SAMPLEFILE was not specified. add -s SAMPLEFILE to add metadata.")
+            logger.warning("SAMPLEFILE was not specified. add -s SAMPLEFILE to add metadata.")
             sample = {}
     else:
         sample = {}
@@ -374,22 +373,23 @@ def _run(
     if int(loompy.__version__.split(".")[0]) >= 2:
         try:
             # tmp_layers = {"": total.astype("float32", order="C", copy=False)}
-            # tmp_layers.update(
-            #     {
-            #         layer_name: layers[layer_name].astype(loom_numeric_dtype, copy=False)
-            #         for layer_name in logic_obj.layers
-            #     }
-            # )
+            tmp_layers.update(
+                {
+                    layer_name: layers[layer_name].astype(loom_numeric_dtype, copy=False)
+                    for layer_name in logic_obj.layers
+                }
+            )
             tmp_layers = {"": total.astype("float32", order="C", copy=False)}
             # | {k: tmp_layers[k].astype(loom_numeric_dtype, copy=False) for k in tmp_layers}
+            logger.debug(f"logic is: {logic} of type {type(logic)}")
             loompy.create(
                 filename=str(outfile),
                 layers=tmp_layers,
                 row_attrs=ra,
                 col_attrs=ca,
                 file_attrs={
-                    "velocyto.__version__": version(__name__),
-                    "velocyto.logic": logic.name, # TODO: this doesn't work.  need to make string of logic type
+                    "velocyto.__version__": __version__,
+                    "velocyto.logic": logic_obj.name, # TODO: this doesn't work.  need to make string of logic type
                 },
             )
             logger.debug(f"Successfully wrote to {outfile}")
@@ -402,7 +402,7 @@ def _run(
             ds = loompy.create(filename=outfile, layers=total, row_attrs=ra, col_attrs=ca)
             for layer_name in logic_obj.layers:
                 ds.set_layer(name=layer_name, layers=layers[layer_name], dtype=loom_numeric_dtype)
-            ds.attrs["velocyto.__version__"] = version()
+            ds.attrs["velocyto.__version__"] = version
             ds.attrs["velocyto.logic"] = logic
             ds.close()
         except TypeError:

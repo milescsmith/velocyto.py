@@ -2798,7 +2798,7 @@ class VelocytoLoom:
         else:
             tmp_colorandum = self.Sx_t[ix, :] - self.Sx[ix, :]
         if (np.abs(tmp_colorandum) > 0.00005).sum() < 10:  # If S vs U scatterplot it is flat
-            logger.warn("S vs U scatterplot it is flat")
+            logger.warning("S vs U scatterplot it is flat")
             return
         limit = np.max(np.abs(np.percentile(tmp_colorandum, [1, 99])))  # upper and lowe limit / saturation
         tmp_colorandum = tmp_colorandum + limit  # that is: tmp_colorandum - (-limit)

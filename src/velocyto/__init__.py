@@ -1,4 +1,5 @@
 # src/pyplier/__init__.py
+"""velocyto"""
 from importlib.metadata import PackageNotFoundError, version
 
 try:
