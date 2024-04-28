@@ -122,3 +122,4 @@ cython_debug/
 
 *.pickle
 test.py
+.pdm-python

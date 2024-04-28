@@ -1,61 +1,65 @@
-[tool.poetry]
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
 name = "velocyto"
-version = "0.31.0"
+version = "0.41.0"
+authors = [
+    {name = "Linnarsson Lab", email = "sten.linnarsson@ki.se"},
+]
 description = "RNA velocity analysis for single cell RNA-seq data"
-authors = ["Linnarsson Lab <sten.linnarsson@ki.se>"]
-license = "BSD-2-Clause"
 readme = "README.md"
+keywords = [
+    "RNAseq",
+    "singlecell",
+    "bioinformatics",
+    "transcriptomics",
+]
+license = {text = "BSD-2-Clause"}
+requires-python = "<3.11,>=3.10"
+dependencies = [
+    "numba>=0.57.1",
+    "numpy<1.25,>=1.21",
+    "scipy>=1.13",
+    "cython>=3.0",
+    "matplotlib<4.0,>=3.8",
+    "h5py<4.0.0,>=3.10.0",
+    "loompy<4.0.0,>=3.0.7",
+    "pysam<1.0.0,>=0.21.0",
+    "pandas>=2.0.3",
+    "scikit-learn<2.0.0,>=1.3.0",
+    "rpy2<4.0.0,>=3.5.13",
+    "typer<1.0.0,>=0.9.0",
+    "loguru<1.0.0,>=0.7.0",
+    "rich<14.0.0,>=13.5.2",
+    "tqdm<5.0.0,>=4.65.0",
+    "anndata<1.0.0,>=0.9.2",
+]
+
+[project.optional-dependencies]
+R = ["rpy2"]
+
+[project.urls]
 homepage = "https://github.com/velocyto-team/velocyto.py"
 repository = "https://github.com/velocyto-team/velocyto.py"
 documentation = "http://velocyto.org/velocyto.py/index.html"
-keywords = ["RNAseq", "singlecell", "bioinformatics", "transcriptomics"]
-include = [
-    # C extensions must be included in the wheel distributions
-    { path = "src/velocyto/*.so", format = "wheel" },
-    { path = "src/velocyto/*.csv", format = "wheel" },
-    { path = "src/velocyto/*.pyx", format = "wheel" },
-    { path = "src/velocyto/*.c", format = "wheel" },
-    { path = "barcodes/*.gz", format = ["sdist", "wheel"] }
-]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.11"
-numba = "^0.57.1"
-numpy = ">=1.21,<1.25"
-scipy = ">=1.12"
-cython = "^3.0"
-matplotlib = "^3.8"
-h5py = "^3.10.0"
-loompy = "^3.0.7"
-pysam = "^0.21.0"
-pandas = "^2.0.3"
-scikit-learn = "^1.3.0"
-rpy2 = "^3.5.13"
-typer = "^0.9.0"
-loguru = "^0.7.0"
-rich = "^13.5.2"
-tqdm = "^4.65.0"
-anndata = "^0.9.2"
-
-[tool.poetry.extras]
-R = ["rpy2"]
-
-[tool.poetry.group.dev.dependencies]
-mypy = "^1.4.1"
-ipython = "^8.14.0"
-nox = "^2023.4.22"
-nox-poetry = "^1.0.3"
-memray = "^1.9.1"
-memory-profiler = "^0.61.0"
-ruff = "^0.3.5"
-
-[build-system]
-requires = ["poetry-core>=1.0.0", "cython", "numpy", "toml", "setuptools"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
+[project.scripts]
 velocyto = "velocyto.commands.cli:velocyto"
 
-[tool.poetry.build]
-generate-setup-file = false
-script = "build.py"
+
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+dev = [
+    "mypy<2.0.0,>=1.4.1",
+    "ipython<9.0.0,>=8.14.0",
+    "nox<2024.0.0,>=2023.4.22",
+    "nox-poetry<2.0.0,>=1.0.3",
+    "memray<2.0.0,>=1.9.1",
+    "memory-profiler<1.0.0,>=0.61.0",
+    "ruff<1.0.0,>=0.3.5",
+]
+
+[tool.pdm.build]
+includes = ["src/velocyto/*.so", "src/velocyto/*.csv", "src/velocyto/*.pyx", "src/velocyto/*.c"]
