@@ -1,5 +1,11 @@
 Changelog
 
+# [0.41.0]
+
+## Changed
+
+- Replaced use of poetry as package manager with pdm
+
 # [0.40.0]
 
 ## Changed
