@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
 import typer
 
+from velocyto import init_logger
 from velocyto.commands._run import _run
-from velocyto.commands.common import init_logger, loomdtype
+from velocyto.commands.common import LoomdType
 
 app = typer.Typer(
     name="velocyto-smartseq2",
@@ -68,13 +69,13 @@ def run_smartseq2(
         ),
     ] = None,
     dtype: Annotated[
-        loomdtype,
+        LoomdType,
         typer.Option(
             "-t",
             "--dtype",
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are expected set uint32 to avoid truncation",
         ),
-    ] = loomdtype.uint32,
+    ] = LoomdType.uint32,
     dump: Annotated[
         str,
         typer.Option(
@@ -93,7 +94,7 @@ def run_smartseq2(
             count=True,
         ),
     ] = 0,
-    additional_ca: Annotated[tuple[str], typer.Option()] = None,
+    **kwargs,
 ) -> None:
     """Runs the velocity analysis on SmartSeq2 data (independent bam file per cell)
 
@@ -104,9 +105,7 @@ def run_smartseq2(
 
     init_logger(verbose)
 
-    additional_ca = {additional_ca[(i * 2)]: additional_ca[(i * 2) + 1] for i in range(len(additional_ca) // 2)}
-
-    return _run(
+    _run(
         bam_input=(bamfiles,),
         gtffile=gtffile,
         bcfile=None,
@@ -125,5 +124,5 @@ def run_smartseq2(
         dump=dump,
         loom_numeric_dtype=str(dtype).split(".")[-1],
         verbose=verbose,
-        additional_ca=additional_ca,
+        **kwargs,
     )

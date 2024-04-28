@@ -1,13 +1,13 @@
 from typing import Any
 
-from .constants import MIN_FLANK
-from .read import Read
+from velocyto.constants import MIN_FLANK
+from velocyto.read import Read
 
 
 class Feature:
     """A simple class representing an annotated genomic feature (e.g. exon, intron, masked repeat)"""
 
-    __slots__ = ["start", "end", "kind", "exin_no", "is_validated", "transcript_model"]
+    __slots__ = ["end", "exin_no", "is_validated", "kind", "start", "transcript_model"]
 
     def __init__(
         self,

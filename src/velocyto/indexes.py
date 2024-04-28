@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Optional
 
 from loguru import logger
 
@@ -11,7 +10,7 @@ from velocyto.transcript_model import TranscriptModel
 
 
 class TransciptsIndex:
-    __slots__ = ["transcipt_models", "tidx", "maxtidx"]
+    __slots__ = ["maxtidx", "tidx", "transcipt_models"]
     """Search help class used to find the transcipt models that a read is spanning/contained into"""
 
     def __init__(self, trascript_models: list[TranscriptModel]) -> None:
@@ -70,10 +69,8 @@ class TransciptsIndex:
 class FeatureIndex:
     """Search help class used to find the intervals that a read is spanning"""
 
-    def __init__(self, ivls: Optional[list[Feature]] = None) -> None:
-        if ivls is None:
-            ivls = []
-        self.ivls = ivls
+    def __init__(self, ivls: list[Feature] | None = None) -> None:
+        self.ivls = ivls if ivls is not None else []
         self.ivls.sort()  # NOTE: maybe I am sorting twice check what I do upon creation
         self.iidx = 0  # index of the current interval
         self.maxiidx = len(ivls) - 1
@@ -191,7 +188,8 @@ class FeatureIndex:
                     # if feature.contains(segment):
                     #     pass  # here the intron is not validated !
                 elif feature.kind != ord("e"):
-                    raise ValueError(f"Unrecognized type of genomic feature {chr(feature.kind)}")
+                    msg = f"Unrecognized type of genomic feature {chr(feature.kind)}"
+                    raise ValueError(msg)
 
                 #  move to the next interval
                 i += 1

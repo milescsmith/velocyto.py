@@ -1,6 +1,7 @@
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from loguru import logger
 from numba import jit
 from scipy import sparse
@@ -14,9 +15,9 @@ from sklearn.neighbors import NearestNeighbors
     nopython=True,
 )
 def balance_knn_loop(
-    dsi: np.ndarray,
-    dist: np.ndarray,
-    lsi: np.ndarray,
+    dsi: npt.ArrayLike,
+    dist: npt.ArrayLike,
+    lsi: npt.ArrayLike,
     maxl: int,
     k: int,
     return_distance: bool,
@@ -25,11 +26,11 @@ def balance_knn_loop(
 
     Arguments
     ---------
-    dsi : np.ndarray  (samples, K)
+    dsi : npt.ArrayLike  (samples, K)
         distance sorted indexes (as returned by sklearn NN)
-    dist : np.ndarray  (samples, K)
+    dist : npt.ArrayLike  (samples, K)
         the actual distance corresponding to the sorted indexes
-    lsi : np.ndarray (samples,)
+    lsi : npt.ArrayLike (samples,)
         degree of connectivity (l) sorted indexes
     maxl : int
         max degree of connectivity (from others to self) allowed
@@ -40,15 +41,17 @@ def balance_knn_loop(
 
     Returns
     -------
-    dsi_new : np.ndarray (samples, k+1)
+    dsi_new : npt.ArrayLike (samples, k+1)
         indexes of the NN, first column is the sample itself
-    dist_new : np.ndarray (samples, k+1)
+    dist_new : npt.ArrayLike (samples, k+1)
         distances to the NN
-    connections: np.ndarray (samples)
+    connections: npt.ArrayLike (samples)
         connections[i] is the number of connections from other samples to the sample i
 
     """
-    assert dsi.shape[1] >= k, "sight needs to be bigger than k"
+    if dsi.shape[1] < k:
+        msg = "sight needs to be bigger than k"
+        raise ValueError(msg)
     # numba signature "Tuple((int64[:,:], float32[:, :], int64[:]))(int64[:,:], int64[:], int64, int64, bool)"
     dsi_new = -1 * np.ones((dsi.shape[0], k + 1), np.int64)  # maybe d.shape[0]
     connections = np.zeros(dsi.shape[0], np.int64)
@@ -87,25 +90,25 @@ def balance_knn_loop(
     nopython=True,
 )
 def balance_knn_loop_constrained(
-    dsi: np.ndarray,
-    dist: np.ndarray,
-    lsi: np.ndarray,
-    groups: np.ndarray,
+    dsi: npt.ArrayLike,
+    dist: npt.ArrayLike,
+    lsi: npt.ArrayLike,
+    groups: npt.ArrayLike,
     maxl: int,
     k: int,
     return_distance: bool,
-) -> tuple:
+) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
     """Fast and greedy algorythm to balance a K-NN graph so that no node is the NN to more than maxl other nodes
 
     Arguments
     ---------
-    dsi : np.ndarray  (samples, K)
+    dsi : npt.ArrayLike  (samples, K)
         distance sorted indexes (as returned by sklearn NN)
-    dist : np.ndarray  (samples, K)
+    dist : npt.ArrayLike  (samples, K)
         the actual distance corresponding to the sorted indexes
-    lsi : np.ndarray (samples,)
+    lsi : npt.ArrayLike (samples,)
         degree of connectivity (l) sorted indexes
-    groups: np.ndarray (samples,)
+    groups: npt.ArrayLike (samples,)
         labels of the samples that constrain the connectivity
     maxl : int
         max degree of connectivity (from others to self) allowed
@@ -116,18 +119,20 @@ def balance_knn_loop_constrained(
 
     Returns
     -------
-    dsi_new : np.ndarray (samples, k+1)
+    dsi_new : npt.ArrayLike (samples, k+1)
         indexes of the NN, first column is the sample itself
-    dist_new : np.ndarray (samples, k+1)
+    dist_new : npt.ArrayLike (samples, k+1)
         distances to the NN
-    connections: np.ndarray (samples)
+    connections: npt.ArrayLike (samples)
         connections[i] is the number of connections from other samples to the sample i
 
     """
-    assert dsi.shape[1] >= k, "sight needs to be bigger than k"
+    if dsi.shape[1] < k:
+        msg = "sight needs to be bigger than k"
+        raise ValueError(msg)
     # numba signature "tuple((int64[:,:], float32[:, :], int64[:]))(int64[:,:], int64[:], int64, int64, bool)"
-    dsi_new = -1 * np.ones((dsi.shape[0], k + 1), np.int64)  # maybe d.shape[0]
-    connections = np.zeros(dsi.shape[0], np.int64)
+    dsi_new: npt.ArrayLike = -1 * np.ones((dsi.shape[0], k + 1), np.int64)  # maybe d.shape[0]
+    connections: npt.ArrayLike = np.zeros(dsi.shape[0], np.int64)
     if return_distance:
         dist_new = np.zeros(dsi_new.shape, np.float64)
     for i in range(dsi.shape[0]):  # For every node
@@ -156,42 +161,40 @@ def balance_knn_loop_constrained(
                 dist_new[el, p + 1] = dist[el, 0]
                 p += 1
     if not return_distance:
-        dist_new = np.ones_like(dsi_new, np.float64)
+        dist_new: npt.ArrayLike = np.ones_like(dsi_new, np.float64)
     return dist_new, dsi_new, connections
 
 
 def knn_balance(
-    dsi: np.ndarray,
-    dist: np.ndarray = None,
+    dsi: npt.ArrayLike,
+    dist: npt.ArrayLike | None = None,
     maxl: int = 200,
     k: int = 60,
-    constraint: np.ndarray = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    constraint: npt.ArrayLike | None = None,
+) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
     """Balance a K-NN graph so that no node is the NN to more than maxl other nodes
 
     Arguments
     ---------
-    dsi : np.ndarray  (samples, K)
+    dsi : npt.ArrayLike  (samples, K)
         distance sorted indexes (as returned by sklearn NN)
-    dist : np.ndarray  (samples, K)
+    dist : npt.ArrayLike  (samples, K)
         the actual distance corresponding to the sorted indexes
     maxl : int
         max degree of connectivity allowed
     k : int
         number of neighbours in the final graph
-    constraint: np.ndarray (samples,)
+    constraint: npt.ArrayLike (samples,)
         labels of the samples that constrain the connectivity
 
     Returns
     -------
-    dist_new : np.ndarray (samples, k+1)
+    dist_new : npt.ArrayLike (samples, k+1)
         distances to the NN
-    dsi_new : np.ndarray (samples, k+1)
+    dsi_new : npt.ArrayLike (samples, k+1)
         indexes of the NN, first column is the sample itself
-    connections: np.ndarray (samples)
+    connections: npt.ArrayLike (samples)
         connections[i] is the number of connections from other samples to the sample i
-
-
     """
     connections = np.bincount(dsi.flat[:], minlength=dsi.shape[0])
     lsi = np.argsort(connections, kind="mergesort")[::-1]
@@ -242,7 +245,7 @@ class BalancedKNN:
     maxl : int  (default=200)
          max degree of connectivity allowed. Avoids the presence of hubs in the graph, it is the
          maximum number of neighbours that are allowed to contact a node before the node is blocked
-    constraint: np.ndarray (default=None)
+    constraint: npt.ArrayLike (default=None)
         a numpy array defining the dirrent groups within wich connectivity is allowed
         if "clusters" it uses the clusters as in self.clusters_ix
     mode : str (default="connectivity")
@@ -256,7 +259,7 @@ class BalancedKNN:
         k: int = 50,
         sight_k: int = 100,
         maxl: int = 200,
-        constraint: np.ndarray = None,
+        constraint: npt.ArrayLike | None = None,
         mode: str = "distance",
         metric: str = "euclidean",
         n_jobs: int = 4,
@@ -275,10 +278,10 @@ class BalancedKNN:
     def n_samples(self) -> int:
         return self.data.shape[0]
 
-    def fit(self, data: np.ndarray, sight_k: int = None) -> Any:
+    def fit(self, data: npt.ArrayLike, sight_k: int | None = None) -> Any:
         """Fits the model
 
-        data: np.ndarray (samples, features)
+        data: npt.ArrayLike (samples, features)
             np
         sight_k: int
             the farthest point that a node is allowed to connect to when its closest neighbours are not allowed
@@ -306,8 +309,8 @@ class BalancedKNN:
         return self
 
     def kneighbors(
-        self, X: np.ndarray = None, maxl: int = None, mode: str = "distance"
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self, X: npt.ArrayLike | None = None, maxl: int | None = None, mode: str = "distance"
+    ) -> tuple[npt.ArrayLike, npt.ArrayLike, npt.ArrayLike]:
         """Finds the K-neighbors of a point.
 
         Returns indices of and distances to the neighbors of each point.
@@ -327,11 +330,11 @@ class BalancedKNN:
 
         Returns
         -------
-        dist_new : np.ndarray (samples, k+1)
+        dist_new : npt.ArrayLike (samples, k+1)
             distances to the NN
-        dsi_new : np.ndarray (samples, k+1)
+        dsi_new : npt.ArrayLike (samples, k+1)
             indexes of the NN, first column is the sample itself
-        l: np.ndarray (samples)
+        l: npt.ArrayLike (samples)
             l[i] is the number of connections from other samples to the sample i
 
         NOTE:
@@ -356,7 +359,9 @@ class BalancedKNN:
             self.dist[:, 0] = 0
         return self.dist_new, self.dsi_new, self.l
 
-    def kneighbors_graph(self, X: np.ndarray = None, maxl: int = None, mode: str = "distance") -> sparse.csr_matrix:
+    def kneighbors_graph(
+        self, X: npt.ArrayLike | None = None, maxl: int | None = None, mode: str = "distance"
+    ) -> sparse.csr_matrix:
         """Retrun the K-neighbors graph as a sparse csr matrix
 
         Parameters
@@ -394,12 +399,12 @@ class BalancedKNN:
 
     def smooth_data(
         self,
-        data_to_smooth: np.ndarray,
-        X: np.ndarray = None,
-        maxl: int = None,
+        data_to_smooth: npt.ArrayLike,
+        X: npt.ArrayLike | None = None,
+        maxl: int | None = None,
         mutual: bool = False,
         only_increase: bool = True,
-    ) -> np.ndarray:
+    ) -> npt.ArrayLike:
         """Use the wights learned from knn to smooth any data matrix
 
         Arguments
@@ -411,19 +416,24 @@ class BalancedKNN:
 
         """
         if self.bknn is None:
-            assert (X is None) and (maxl is None), "graph was already fit with different parameters"
+            if X is not None or maxl is not None:
+                msg = "graph was already fit with different parameters"
+                raise ValueError(msg)
             self.kneighbors_graph(X=X, maxl=maxl, mode=self.mode)
         connectivity = make_mutual(self.bknn > 0) if mutual else self.bknn.T > 0
         connectivity = connectivity.tolil()
         connectivity.setdiag(1)
         w = connectivity_to_weights(connectivity).T
-        assert np.allclose(w.sum(0), 1), "weight matrix need to sum to one over the columns"
+        if not np.allclose(w.sum(0), 1):
+            msg = "weight matrix need to sum to one over the columns"
+            raise ValueError(msg)
         if data_to_smooth.shape[1] == w.shape[0]:
             result = sparse.csr_matrix.dot(data_to_smooth, w)
         elif data_to_smooth.shape[0] == w.shape[0]:
             result = sparse.csr_matrix.dot(data_to_smooth.T, w).T
         else:
-            raise ValueError(f"Incorrect size of matrix, none of the axis correspond to the one of graph. {w.shape}")
+            msg = f"Incorrect size of matrix, none of the axis correspond to the one of graph. {w.shape}"
+            raise ValueError(msg)
 
         return np.maximum(result, data_to_smooth) if only_increase else result
 
@@ -432,8 +442,8 @@ class BalancedKNN:
 
 
 def knn_distance_matrix(
-    data: np.ndarray,
-    metric: str = None,
+    data: npt.ArrayLike,
+    metric: str | None = None,
     k: int = 40,
     mode: str = "connectivity",
     n_jobs: int = 4,
@@ -467,7 +477,7 @@ def connectivity_to_weights(mknn: sparse.csr.csr_matrix, axis: int = 1) -> spars
     return mknn.multiply(1.0 / sparse.csr_matrix.sum(mknn, axis=axis))
 
 
-def min_n(row_data: np.ndarray, row_indices: np.ndarray, n: int) -> tuple[np.ndarray, np.ndarray]:
+def min_n(row_data: npt.ArrayLike, row_indices: npt.ArrayLike, n: int) -> tuple[npt.ArrayLike, npt.ArrayLike]:
     """Find the smallest entry and smallest indices of a row"""
     i = row_data.argsort()[:n]
     # i = row_data.argpartition(-n)[-n:]
@@ -489,18 +499,20 @@ def take_top(matrix: sparse.spmatrix, n: int) -> sparse.lil_matrix:
 # Common functions
 
 
-def convolve_by_sparse_weights(data: np.ndarray, w: sparse.csr_matrix) -> np.ndarray:
+def convolve_by_sparse_weights(data: npt.ArrayLike, w: sparse.csr_matrix) -> npt.ArrayLike:
     """Use the wights learned from knn to convolve any data matrix
 
     NOTE: A improved implementation could detect wich one is sparse and wich kind of sparse and perform faster computation
     """
     w_ = w.T
-    assert np.allclose(w_.sum(0), 1), "weight matrix need to sum to one over the columns"
+    if not np.allclose(w_.sum(0), 1):
+        msg = "weight matrix need to sum to one over the columns"
+        raise ValueError(msg)
     return sparse.csr_matrix.dot(data, w_)
 
 
 def knn_smooth_weights(
-    matrix: np.ndarray,
+    matrix: npt.ArrayLike,
     metric: str = "euclidean",
     k_search: int = 20,
     k_mutual: int = 10,
@@ -522,7 +534,9 @@ def knn_smooth_weights(
     Retruns
         weights (, knn)
     """
-    assert k_search >= k_mutual, "k_search needs to be bigger than k_mutual"
+    if k_search < k_mutual:
+        msg = "k_search needs to be bigger than k_mutual"
+        raise ValueError(msg)
     knn = knn_distance_matrix(matrix.T, metric=metric, k=k_search, mode="distance", n_jobs=n_jobs)
     mknn = make_mutual(knn)
     top_mknn = take_top(mknn, k_mutual)

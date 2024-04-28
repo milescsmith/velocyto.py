@@ -1,16 +1,14 @@
 
-from velocyto.commands._run import _run
-# from velocyto.commands.run10x import run10x
-from velocyto.commands.common import logicType, init_logger
-from pathlib import Path
-from loguru import logger
-
+# from memory_profiler import profile, LogFile
 import sys
-import better_exceptions
+from pathlib import Path
+
+from loguru import logger
+from velocyto.commands._run import _run
+from velocyto.commands.common import LogicType, init_logger
+
 sys.path[0] = str(Path(sys.path[0]).parent)
 
-
-better_exceptions.hook()
 # from memory_profiler import profile, LogFile
 
 
@@ -36,7 +34,7 @@ def main():
             metadatatable=None,
             repmask=samplefolder.joinpath("grch3810_repeat_mask.gtf"),
             onefilepercell=False,
-            logic=logicType.Permissive10X,
+            logic=LogicType.Permissive10X,
             without_umi=False,
             umi_extension="no",
             multimap=False,

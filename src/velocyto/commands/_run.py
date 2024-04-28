@@ -3,31 +3,26 @@ import multiprocessing
 import subprocess
 import sys
 from distutils.spawn import find_executable
+from functools import reduce
 from pathlib import Path
 from typing import Any
-from functools import reduce
 
+import anndata as ad
 import numpy as np
 import pandas as pd
 import scipy as sp
 from loguru import logger
-import anndata as ad
 
+from velocyto.commands.common import LogicType, choose_dtype, choose_logic, id_generator
 from velocyto.constants import BAM_COMPRESSION
 from velocyto.counter import ExInCounter
 from velocyto.metadata import MetadataCollection
-from velocyto.commands.common import choose_dtype, choose_logic, id_generator, logicType
-import better_exceptions
-
-better_exceptions.hook()
 
 
 def _run(
     *,
     bam_input: tuple[Path],
     gtffile: Path,
-    bcfile: Path,
-    outputfolder: Path,
     sampleid: str,
     metadatatable: str,
     repmask: str,
@@ -41,6 +36,8 @@ def _run(
     loom_numeric_dtype: str,
     dump: str,
     verbose: int,
+    bcfile: Path | None = None,
+    outputfolder: Path | None = None,
     samtools_path: Path | None = None,
     **kwargs,
 ) -> None:
@@ -60,20 +57,19 @@ def _run(
         samtools = find_executable("samtools")
         if samtools is None:
             logger.error("samtools was not found")
-            raise FileNotFoundError(
-                "Samtools was not found. Make sure that it is both installed and on the system path"
-            )
+            msg = "Samtools was not found. Make sure that it is both installed and on the system path"
+            raise FileNotFoundError(msg)
 
     loom_numeric_dtype = choose_dtype(loom_numeric_dtype)
 
     bamfile, multi = parse_bam_input(bam_input)
 
     if onefilepercell and multi:
-        if bcfile is not None:
-            raise ValueError(
-                "Inputs incompatibility. --bcfile/-b option was used together with --onefilepercell/-c option."
-            )
-        logger.warning("Each bam file will be interpreted as a DIFFERENT cell")
+        if bcfile:
+            msg = "Inputs incompatibility. --bcfile/-b option was used together with --onefilepercell/-c option."
+            raise ValueError(msg)
+        else:
+            logger.warning("Each bam file will be interpreted as a DIFFERENT cell")
     elif not onefilepercell and multi:
         logger.warning(
             "Several input files but --onefilepercell is False. Each bam file will be interpreted as containing a SET of cells!"
@@ -87,8 +83,8 @@ def _run(
     if not outputfolder.exists():
         outputfolder.mkdir(parents=True, exist_ok=False)
 
-    if logic not in logicType:
-        msg = f"{logic} is not a valid logic. Choose one among {', '.join([_.value for _ in logicType])}"
+    if logic not in LogicType:
+        msg = f"{logic} is not a valid logic. Choose one among {', '.join([_.value for _ in LogicType])}"
         raise ValueError(msg)
     logger.debug(f"Using logic: {logic}")
     logic = choose_logic(logic)
@@ -146,7 +142,7 @@ def _run(
 
     load_annotations(gtffile, exincounter)
 
-    logger.info(f"Scan {' '.join((str(_) for _ in bamfile))} to validate intron intervals")
+    logger.info(f"Scan {' '.join(str(_) for _ in bamfile)} to validate intron intervals")
     if repmask is not None:
         logger.info(f"Load the repeat masking annotation from {repmask}")
         exincounter.read_repeats(repmask)
@@ -255,8 +251,8 @@ def get_metadata(sampleid, metadatatable):
 
 
 def sort_bamfiles(
-    bamfile: Path,
-    bamfile_cellsorted: Path,
+    bamfile: list[Path],
+    bamfile_cellsorted: list[Path],
     tagname: str,
     samtools_memory: str,
     samtools_threads: int,
@@ -286,12 +282,8 @@ def sort_bamfiles(
             if returncode == 0:
                 logger.info(f"bam file #{k} has been sorted")
             else:
-                raise MemoryError(
-                    f"bam file #{k} could not be sorted by cells.\n\
-                This is probably related to an old version of samtools, please install samtools >= 1.6.\
-                In alternative this could be a memory error, try to set the --samtools_memory option to a value compatible with your system. \
-                Otherwise sort manually by samtools ``sort -l [BAM_COMPRESSION] -m [mb_to_use]M -t [tagname] -O BAM -@ [threads_to_use] -o cellsorted_[bamfile] [bamfile]``"
-                )
+                msg = f"bam file #{k} could not be sorted by cells.\n\tThis is probably related to an old version of samtools, please install samtools >= 1.6.                In alternative this could be a memory error, try to set the --samtools_memory option to a value compatible with your system.                 Otherwise sort manually by samtools ``sort -l [compression] -m [mb_to_use]M -t [tagname] -O BAM -@ [threads_to_use] -o cellsorted_[bamfile] [bamfile]``"
+                raise MemoryError(msg)
 
 
 def load_annotations(gtffile, exincounter):
@@ -311,7 +303,8 @@ def resolve_sampleid(sampleid, metadatatable, onefilepercell, bamfile, multi):
             )
         if multi and not onefilepercell:
             full_name = "_".join([bamfile[i].name.split(".")[0] for i in range(len(bamfile))])
-            if len(full_name) > 50:
+            FILENAME_IS_TOO_LONG = 50
+            if len(full_name) > FILENAME_IS_TOO_LONG:
                 sampleid = f'multi_input_{bamfile[0].name.split(".")[0]}_{id_generator(5)}'
             else:
                 sampleid = f"multi_input_{full_name}_and_others_{id_generator(5)}"
@@ -327,14 +320,15 @@ def resolve_sampleid(sampleid, metadatatable, onefilepercell, bamfile, multi):
 
 
 def parse_bam_input(bamfile):
-    if isinstance(bamfile, (str, Path)):
+    if isinstance(bamfile, str | Path):
         bamfile = (bamfile,)
     if isinstance(bamfile, tuple) and len(bamfile) > 1 and bamfile.suffix in [".bam", ".sam"]:
         multi = True
     elif isinstance(bamfile, tuple) and len(bamfile) == 1:
         multi = False
     else:
-        raise IOError(f"Something went wrong in the argument parsing. You passed as bamfile: {bamfile}")
+        msg = f"Something went wrong in the argument parsing. You passed as bamfile: {bamfile}"
+        raise OSError(msg)
     return bamfile, multi
 
 

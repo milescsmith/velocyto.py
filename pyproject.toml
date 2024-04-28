@@ -22,10 +22,10 @@ include = [
 python = ">=3.10,<3.11"
 numba = "^0.57.1"
 numpy = ">=1.21,<1.25"
-scipy = "^1.11.1"
-cython = "^3.0.0"
-matplotlib = "^3.7.2"
-h5py = "^3.9.0"
+scipy = ">=1.12"
+cython = "^3.0"
+matplotlib = "^3.8"
+h5py = "^3.10.0"
 loompy = "^3.0.7"
 pysam = "^0.21.0"
 pandas = "^2.0.3"
@@ -47,8 +47,7 @@ nox = "^2023.4.22"
 nox-poetry = "^1.0.3"
 memray = "^1.9.1"
 memory-profiler = "^0.61.0"
-ruff = "^0.0.282"
-black = ">=23.7,<25.0"
+ruff = "^0.3.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "cython", "numpy", "toml", "setuptools"]
@@ -60,46 +59,3 @@ velocyto = "velocyto.commands.cli:velocyto"
 [tool.poetry.build]
 generate-setup-file = false
 script = "build.py"
-
-[tool.black]
-line-length = 120
-target-version = ['py310']
-skip-string-normalization = true
-
-[tool.ruff]
-target-version = "py310"
-select = ["B", "C", "E", "F", "T", "W", "Q"]
-# E127, E128 are hard to silence in certain nested formatting situations.
-# E265, E266 talk about comment formatting which is too opinionated.
-# E402 warns on imports coming after statements. There are important use cases
-# like demandimport (https://fburl.com/demandimport) that require statements
-# before imports.
-# E501 is not flexible enough, we're using B950 instead.
-# E722 is a duplicate of B001.
-# P207 is a duplicate of B003.
-# W503 talks about operator formatting which is too opinionated.
-# E203 conflicts with Black
-# ignore = ["E127", "E128", "E265", "E266", "E402", "E501", "E722", "P207", "W503", "E203", "T484"]
-ignore = ["E501", "B008", "B905"]
-line-length = 80
-exclude = [
-  ".git",
-  ".hg",
-  "__pycache__",
-  "_bin/*",
-  "_build/*",
-  "_ig_fbcode_wheel/*",
-  "buck-out/*",
-  "third-party-buck/*",
-  "third-party2/*",
-  "dist",
-  ".venv",
-  ".nox",
-  ".mypy_cache",
-  ".pytype",
-  ".svn",
-  "__pypackages__"
-]
-
-[tool.ruff.mccabe]
-max-complexity = 50

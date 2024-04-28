@@ -1,11 +1,12 @@
 import csv
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class Metadata:
     def __init__(self, keys: list, values: list, types: Iterable) -> None:
-        self.types = dict(zip(keys, types))
-        self.dict = dict(zip(keys, values))
+        self.types = dict(zip(keys, types, strict=False))
+        self.dict = dict(zip(keys, values, strict=False))
         for ix in range(len(keys)):
             setattr(self, keys[ix], values[ix])
 
@@ -27,7 +28,7 @@ class MetadataCollection:
                 if len(row) == 0:
                     continue
                 if keys is None:
-                    if len(row[0].split(":")) == 2:
+                    if len(row[0].split(":")) == 2:  # noqa: PLR2004
                         keys = [r.split(":")[0] for r in row]
                         types = [r.split(":")[1] for r in row]  # NOTE: I don't use type anymore
                     else:

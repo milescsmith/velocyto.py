@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
 import typer
 
+from velocyto import init_logger
 from velocyto.commands._run import _run
-from velocyto.commands.common import UMIExtension, init_logger, logicType, loomdtype
+from velocyto.commands.common import LogicType, LoomdType, UMIExtension
 
 app = typer.Typer(
     name="velocyto-run",
@@ -91,13 +92,13 @@ def run(
         ),
     ] = False,
     logic: Annotated[
-        logicType,
+        LogicType,
         typer.Option(
             "-l",
             "--logic",
             help="Logic to use for the filtering",
         ),
-    ] = logicType.Permissive10X,
+    ] = LogicType.Permissive10X,
     without_umi: Annotated[
         bool,
         typer.Option(
@@ -152,7 +153,7 @@ def run(
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are "
             "expected set uint32 to avoid truncation (default run: uint32)",
         ),
-    ] = loomdtype.uint32,
+    ] = LoomdType.uint32,
     dump: Annotated[
         str,
         typer.Option(
@@ -172,7 +173,7 @@ def run(
             count=True,
         ),
     ] = 0,
-    additional_ca: Annotated[tuple[str], typer.Option()] = None,
+    **kwargs
 ) -> None:
     """Run velocity analysis
 
@@ -183,10 +184,8 @@ def run(
 
     init_logger(verbose)
 
-    if additional_ca:
-        additional_ca = {additional_ca[(i * 2)]: additional_ca[(i * 2) + 1] for i in range(len(additional_ca) // 2)}
 
-    return _run(
+    _run(
         bamfile=bamfile,
         gtffile=gtffile,
         bcfile=bcfile,
@@ -205,5 +204,5 @@ def run(
         dump=dump,
         loom_numeric_dtype=dtype.split(".")[-1],
         verbose=verbose,
-        additional_ca=additional_ca,
+        **kwargs,
     )

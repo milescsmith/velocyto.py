@@ -6,14 +6,14 @@ class Read:
 
     __slots__ = [
         "bc",
-        "umi",
         "chrom",
-        "strand",
-        "pos",
-        "segments",
-        "clip5",
         "clip3",
+        "clip5",
+        "pos",
         "ref_skipped",
+        "segments",
+        "strand",
+        "umi",
     ]
 
     def __init__(

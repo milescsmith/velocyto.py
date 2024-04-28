@@ -4,9 +4,9 @@ import random
 import re
 import string
 from collections import Counter, OrderedDict, defaultdict
+from collections.abc import Iterable
 from itertools import chain
 from pathlib import Path
-from typing import DefaultDict, Iterable
 
 import h5py
 import numpy as np
@@ -15,7 +15,15 @@ import scipy as sp
 from loguru import logger
 from tqdm.auto import tqdm
 
-from velocyto.constants import LONGEST_INTRON_ALLOWED, LOOM_NUMERIC_DTYPE, PATCH_INDELS, PLACEHOLDER_UMI_LEN
+from velocyto.constants import (
+    INTRON_SEGMENT_VALUE,
+    LONGEST_EXTANT_LOCUS,
+    LONGEST_INTRON_ALLOWED,
+    LOOM_NUMERIC_DTYPE,
+    MIN_CELL_EVENT_COUNTS,
+    PATCH_INDELS,
+    PLACEHOLDER_UMI_LEN,
+)
 from velocyto.feature import Feature
 from velocyto.gene_info import GeneInfo
 from velocyto.indexes import FeatureIndex
@@ -23,10 +31,6 @@ from velocyto.logic import Logic
 from velocyto.molitem import Molitem
 from velocyto.read import Read
 from velocyto.transcript_model import TranscriptModel
-
-import better_exceptions
-
-better_exceptions.hook()
 
 
 class ExInCounter:
@@ -36,7 +40,7 @@ class ExInCounter:
         self,
         sampleid: str,
         logic: Logic,
-        valid_bcset: set[str] = None,
+        valid_bcset: set[str] | None = None,
         umi_extension: str = "no",
         onefilepercell: bool = False,
         dump_option: str = "0",
@@ -71,7 +75,8 @@ class ExInCounter:
                 self.umi_extract = self._placeolder_umi
             case _:
                 if not umi_extension.endswith("bp"):
-                    raise ValueError(f"umi_extension {umi_extension} is not allowed. Use `no`, `Gene` or `[N]bp`")
+                    msg = f"umi_extension {umi_extension} is not allowed. Use `no`, `Gene` or `[N]bp`"
+                    raise ValueError(msg)
                 self.umi_bp = int(umi_extension[:-2])
                 self.umi_extract = self._extension_Nbp
 
@@ -170,9 +175,8 @@ class ExInCounter:
                 self.umibarcode_str = "XM"
                 break
             elif failed > 5 * lines:
-                raise IOError(
-                    "The bam file does not contain cell and umi barcodes appropriatelly formatted. If you are runnin UMI-less data you should use the -U flag."
-                )
+                msg = "The bam file does not contain cell and umi barcodes appropriatelly formatted. If you are runnin UMI-less data you should use the -U flag."
+                raise OSError(msg)
         fin.close()
 
     def peek_umi_only(self, bamfile: str, lines: int = 30) -> None:
@@ -199,9 +203,8 @@ class ExInCounter:
                 self.umibarcode_str = "XM"
                 break
             elif failed > 5 * lines:
-                raise IOError(
-                    "The bam file does not contain umi barcodes appropriatelly formatted. If you are runnin UMI-less data you should use the -U flag."
-                )
+                msg = "The bam file does not contain umi barcodes appropriatelly formatted. If you are runnin UMI-less data you should use the -U flag."
+                raise OSError(msg)
         fin.close()
 
     def _no_extension(self, read: pysam.AlignedSegment) -> str:
@@ -216,7 +219,7 @@ class ExInCounter:
         except KeyError:
             return f"{read.get_tag(self.umibarcode_str)}_withoutGX"
 
-    def _placeolder_umi(self, read: pysam.AlignedSegment) -> str:
+    def _placeolder_umi(self) -> str:
         return "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(PLACEHOLDER_UMI_LEN))
 
     def _extension_chr(self, read: pysam.AlignedSegment) -> str:
@@ -225,7 +228,7 @@ class ExInCounter:
     def _normal_cell_barcode_get(self, read: pysam.AlignedSegment) -> str:
         return read.get_tag(self.cellbarcode_str).split("-")[0]
 
-    def _bam_id_barcode(self, read: pysam.AlignedSegment) -> str:
+    def _bam_id_barcode(self) -> str:
         return f"{self._current_bamfile}"
 
     def iter_alignments(self, bamfiles: tuple[str], unique: bool = True, yield_line: bool = False) -> Iterable:
@@ -251,7 +254,9 @@ class ExInCounter:
         # bamfile_name_seen: set[str] = set()
         counter_skipped_no_barcode = 0
         if Counter(bamfiles).most_common(1)[0][1] != 1:
-            logger.warning("The bamfiles names are not unique. The full path to them will be used as unique identifier")
+            logger.warning(
+                "The bamfiles names are not unique. The full path to them will be used as a unique identifier"
+            )
             use_basename = False
         else:
             use_basename = True
@@ -274,9 +279,11 @@ class ExInCounter:
                     umi = self.umi_extract(read)
                 except KeyError as err:
                     if read.has_tag(self.cellbarcode_str) and read.has_tag(self.umibarcode_str):
-                        raise KeyError(
-                            f"Some errors in parsing the cell barcode has occurred {self.cellbarcode_str}, {self.umibarcode_str}\n{read}"
-                        ) from err
+                        msg = (
+                            f"Some errors in parsing the cell barcode has occurred "
+                            f"{self.cellbarcode_str}, {self.umibarcode_str}\n{read}"
+                        )
+                        raise KeyError(msg) from err
                     counter_skipped_no_barcode += 1
                     continue  # NOTE: Here errors could go unnoticed
                 if bc not in self.valid_bcset:
@@ -305,7 +312,7 @@ class ExInCounter:
                     logger.debug(f"No segments in read: {read.qname}")
 
                 read_object = Read(bc, umi, chrom, strand, pos, segments, clip5, clip3, ref_skipped)
-                if read_object.span > 3000000:  # Longest locus existing
+                if read_object.span > LONGEST_EXTANT_LOCUS:
                     logger.warning(f"Trashing read, too long span\n{read.tostring(fin)}")
                 elif yield_line:
                     yield read_object, read.tostring(fin)
@@ -318,7 +325,7 @@ class ExInCounter:
             else:
                 yield None
         logger.debug(
-            f"{counter_skipped_no_barcode} reads were skipped because no apropiate cell or umi barcode was found"
+            f"{counter_skipped_no_barcode} reads were skipped because no appropiate cell or umi barcode wer found"
         )
 
     def read_repeats(self, gtf_file: str, tolerance: int = 5) -> None:
@@ -359,7 +366,7 @@ class ExInCounter:
             with gzip.open(gtf_file, "rb") as gtf:
                 gtf_lines = [line.decode() for line in tqdm(gtf) if not line.decode().startswith("#")]
         else:
-            with open(gtf_file, "r") as gtf:
+            with open(gtf_file) as gtf:
                 gtf_lines = [line for line in tqdm(gtf) if not line.startswith("#")]
 
         def sorting_key(entry: str) -> tuple[str, bool, int, str]:
@@ -512,7 +519,7 @@ class ExInCounter:
             with gzip.open(gtf_file, "rb") as gtf:
                 gtf_lines = [line.decode() for line in tqdm(gtf) if not line.decode().startswith("#")]
         else:
-            with open(gtf_file, "r") as gtf:
+            with open(gtf_file) as gtf:
                 gtf_lines = [line for line in tqdm(gtf) if not line.startswith("#")]
 
         def sorting_key(entry: str) -> tuple[str, bool, int, str]:
@@ -559,11 +566,10 @@ class ExInCounter:
                 if curr_chromstrand is not None:  # Every time with exception with first and the last chromosome
                     if chrom + strand in self.annotations_by_chrm_strand:
                         # NOTE this is not enough as a check but it will detect with few checks if file is not sorted at all
-                        raise IOError(
-                            "Genome annotation gtf file is not sorted correctly! Run the following command:\nsort -k1,1 -k7,7 -k4,4n -o [GTF_OUTFILE] [GTF_INFILE]"
-                        )
+                        msg = "Genome annotation gtf file is not sorted correctly! Run the following command:\nsort -k1,1 -k7,7 -k4,4n -o [GTF_OUTFILE] [GTF_INFILE]"
+                        raise OSError(msg)
                     else:
-                        logger.debug(f"Done with {curr_chromstrand} [line {nth_line-1}]")
+                        logger.debug(f"Done with {curr_chromstrand} [line {nth_line - 1}]")
                     self.assign_indexes_to_genes(features)
                     self.annotations_by_chrm_strand[curr_chromstrand] = features
                     logger.debug(f"Seen {len(self.geneid2ix)} genes until now")
@@ -582,9 +588,8 @@ class ExInCounter:
                     exonno = regex_exonno.search(tags)[1]
                 except AttributeError as err:
                     # NOTE: Don't try to release this constraint, velocyto relies on it for safe calculations! Rather make a utility script that does putative annotation separatelly.
-                    raise IOError(
-                        "The genome annotation .gtf file provided does not contain exon_number. `exon_number` is described as a mandatory field by GENCODE gtf file specification and we rely on it for easier processing"
-                    ) from err
+                    msg = "The genome annotation .gtf file provided does not contain exon_number. `exon_number` is described as a mandatory field by GENCODE gtf file specification and we rely on it for easier processing"
+                    raise OSError(msg) from err
                 start = int(start_str)
                 end = int(end_str)
                 chromstrand = chrom + strand
@@ -604,10 +609,10 @@ class ExInCounter:
         # Do it for the last chromosome
         self.assign_indexes_to_genes(features)
         self.annotations_by_chrm_strand[curr_chromstrand] = features
-        logger.debug(f"Done with {curr_chromstrand} [line {nth_line-1}]")
+        logger.debug(f"Done with {curr_chromstrand} [line {nth_line - 1}]")
 
         logger.debug(
-            f"Fixing corner cases of transcript models containg intron longer than {LONGEST_INTRON_ALLOWED//1000}Kbp"
+            f"Fixing corner cases of transcript models containg intron longer than {LONGEST_INTRON_ALLOWED // 1000}Kbp"
         )
         # Fix corner cases of extremely long introns ~1Mbp that would be masking genes that are found internally
         for tmodels_orddict in self.annotations_by_chrm_strand.values():
@@ -680,7 +685,8 @@ class ExInCounter:
                 try:
                     trid = regex_trid.search(tags)[1]
                 except AttributeError as err:
-                    raise AttributeError(f"transcript_id entry not found in line: {lin}") from err
+                    msg = f"transcript_id entry not found in line: {lin}"
+                    raise AttributeError(msg) from err
                 if strand == "-":
                     min_info_lines_minus.append([trid, int(start_str), int(end_str), lin])
                 else:
@@ -736,7 +742,7 @@ class ExInCounter:
         # Since I support multiple files (Smart seq2 it makes sense here to load the feature indexes into memory)
         # NOTE this means that maybe I could do this once at a level above
         # NOTE if this is not done in count then I need to bring it before the if/else statement
-        self.feature_indexes: DefaultDict[str, FeatureIndex] = defaultdict(FeatureIndex)
+        self.feature_indexes: defaultdict[str, FeatureIndex] = defaultdict(FeatureIndex)
         for (
             chromstrand_key,
             annotions_ordered_dict,
@@ -776,7 +782,7 @@ class ExInCounter:
                 logger.debug(f"{r.chrom=}, {currchrom=}")
                 if r.chrom in set_chromosomes_seen:
                     msg = f"Input .bam file should be chromosome-sorted. (Hint: use `samtools sort {bamfile}`)"
-                    raise IOError(msg)
+                    raise OSError(msg)
                 set_chromosomes_seen.add(r.chrom)
                 logger.debug(f"Marking up chromosome {r.chrom}")
                 currchrom = r.chrom
@@ -812,7 +818,6 @@ class ExInCounter:
         bamfile: tuple[str],
         multimap: bool,
         cell_batch_size: int = 100,
-        molecules_report: bool = False,
     ) -> tuple[dict[str, list[np.ndarray]], list[str]]:
         """Do the counting of molecules
 
@@ -839,7 +844,7 @@ class ExInCounter:
         # self.cells_since_last_count = 0
         # Analysis is cell wise so the Feature Index swapping is happening often and it is worth to preload everything in memory
         # NOTE: for the features this was already done at markup time, maybe I should just reset them
-        self.feature_indexes: DefaultDict[str, FeatureIndex] = defaultdict(FeatureIndex)
+        self.feature_indexes: defaultdict[str, FeatureIndex] = defaultdict(FeatureIndex)
         for chromstrand_key, annotions_ordered_dict in tqdm(
             self.annotations_by_chrm_strand.items(), desc="Count molecules - feature indexes"
         ):
@@ -847,7 +852,7 @@ class ExInCounter:
                 sorted(chain.from_iterable(annotions_ordered_dict.values()))
             )
 
-        self.mask_indexes: DefaultDict[str, FeatureIndex] = defaultdict(FeatureIndex)
+        self.mask_indexes: defaultdict[str, FeatureIndex] = defaultdict(FeatureIndex)
         for chromstrand_key, annotions_list in tqdm(
             self.mask_ivls_by_chromstrand.items(), desc="Count molecules - mask indexes"
         ):
@@ -894,9 +899,9 @@ class ExInCounter:
                     # This is to avoid crazy big matrix output if the barcode selection is not chosen
                     logger.warning("The barcode selection mode is off, no cell events will be identified by <80 counts")
                     tot_mol = dict_layer_columns["spliced"].sum(0) + dict_layer_columns["unspliced"].sum(0)
-                    cell_bcs_order += list(np.array(list_bcs)[tot_mol > 80])
+                    cell_bcs_order += list(np.array(list_bcs)[tot_mol > MIN_CELL_EVENT_COUNTS])
                     for layer_name, layer_columns in dict_layer_columns.items():
-                        dict_list_arrays[layer_name].append(layer_columns[:, tot_mol > 80])
+                        dict_list_arrays[layer_name].append(layer_columns[:, tot_mol > MIN_CELL_EVENT_COUNTS])
                     logger.warning(f"{np.sum(tot_mol < 80)} of the UMIs were without a cell barcode")
 
                 self.cell_batch = set()
@@ -932,7 +937,7 @@ class ExInCounter:
 
         NOTE This duplications of method is bad for code mantainance
         """
-        molitems: DefaultDict[str, Molitem] = defaultdict(Molitem)
+        molitems: defaultdict[str, Molitem] = defaultdict(Molitem)
         # Sort similarly to what the sort linux command would do. (implemented using Read.__lt__)
         # NOTE NOTE!!!! Here I changed the way to sort because it was using the strand causing to skip a lot of reads in SmartSeq2
         self.reads_to_count.sort()
@@ -974,7 +979,7 @@ class ExInCounter:
         #     # dict_layers_columns[layer_name] = np.zeros(shape, dtype=self.loom_numeric_dtype, order="C")
         #     dict_layers_columns[layer_name] = sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype)
 
-        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch))))
+        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch)), strict=False))
         # After the whole file has been read, do the actual counting
         failures = 0
         counter: Counter = Counter()
@@ -986,7 +991,7 @@ class ExInCounter:
                 counter[rcode] += 1
                 # before it was molitem.count(bcidx, spliced, unspliced, ambiguous, self.geneid2ix)
         if failures > (0.25 * len(molitems)):
-            logger.warning(f"More than 20% ({(100*failures / len(molitems)):.1f}%) of molitems trashed, of those:")
+            logger.warning(f"More than 20% ({(100 * failures / len(molitems)):.1f}%) of molitems trashed, of those:")
             if (x := (100 * counter[1] / len(molitems))) > 0.0:
                 logger.warning(f"A situation where many genes were compatible with the observation in {x:.1f} cases")
             if (y := (100 * counter[2] / len(molitems))) > 0.0:
@@ -1038,7 +1043,7 @@ class ExInCounter:
                                     v2_ivl.transcript_model.genename
                                 )  # “info/ivls/features_gene“,
                                 info_is_last3prime.append(v2_ivl.is_last_3prime)  # “info/ivls/is_last3prime“
-                                info_is_intron.append(v2_ivl.kind == 105)  # “info/ivls/is_intron“,
+                                info_is_intron.append(v2_ivl.kind == INTRON_SEGMENT_VALUE)  # “info/ivls/is_intron“,
                                 info_start_end.append((v2_ivl.start, v2_ivl.end))  # “info/ivls/feture_start_end“
                                 info_exino.append(v2_ivl.exin_no)  # “info/ivls/exino“
                                 info_strandplus.append(
@@ -1123,9 +1128,9 @@ class ExInCounter:
                     )
 
                 # cell_name = next(iter(molitems.keys())).split("$")[0]
-                pos: DefaultDict[str, list[tuple[int, int]]] = defaultdict(list)
-                mol: DefaultDict[str, list[int]] = defaultdict(list)
-                ixs: DefaultDict[str, list[int]] = defaultdict(list)
+                pos: defaultdict[str, list[tuple[int, int]]] = defaultdict(list)
+                mol: defaultdict[str, list[int]] = defaultdict(list)
+                ixs: defaultdict[str, list[int]] = defaultdict(list)
                 count_i: int = 0
                 for mol_bc, molitem in molitems.items():
                     cell_name = mol_bc.split("$")[0]
@@ -1190,7 +1195,7 @@ class ExInCounter:
 
         NOTE This duplications of method is bad for code mantainance
         """
-        molitems: DefaultDict[str, Molitem] = defaultdict(Molitem)
+        molitems: defaultdict[str, Molitem] = defaultdict(Molitem)
         # Sort similarly to what the sort linux command would do. (implemented using Read.__lt__)
         self.reads_to_count.sort()
         # NOTE: I could start by sorting the reads by chromosome, strand, position but for now let's see if it is fast without doing do
@@ -1231,7 +1236,7 @@ class ExInCounter:
         dict_layers_columns: dict[str, np.ndarray] = {
             layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype) for layer_name in self.logic.layers
         }
-        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch))))
+        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch)), strict=False))
         # After the whole file has been read, do the actual counting
         for bcumi, molitem in molitems.items():
             bc = bcumi.split("$")[0]  # extract the bc part from the bc+umi
@@ -1282,7 +1287,7 @@ class ExInCounter:
                                     v2_ivl.transcript_model.genename
                                 )  # “info/ivls/features_gene“,
                                 info_is_last3prime.append(v2_ivl.is_last_3prime)  # “info/ivls/is_last3prime“
-                                info_is_intron.append(v2_ivl.kind == 105)  # “info/ivls/is_intron“,
+                                info_is_intron.append(v2_ivl.kind == INTRON_SEGMENT_VALUE)  # “info/ivls/is_intron“,
                                 info_start_end.append((v2_ivl.start, v2_ivl.end))  # “info/ivls/feture_start_end“
                                 info_exino.append(v2_ivl.exin_no)  # “info/ivls/exino“
                                 info_strandplus.append(
@@ -1367,9 +1372,9 @@ class ExInCounter:
                     )
 
                 # cell_name = next(iter(molitems.keys())).split("$")[0]
-                pos: DefaultDict[str, list[tuple[int, int]]] = defaultdict(list)
-                mol: DefaultDict[str, list[int]] = defaultdict(list)
-                ixs: DefaultDict[str, list[int]] = defaultdict(list)
+                pos: defaultdict[str, list[tuple[int, int]]] = defaultdict(list)
+                mol: defaultdict[str, list[int]] = defaultdict(list)
+                ixs: defaultdict[str, list[int]] = defaultdict(list)
                 count_i: int = 0
                 for mol_bc, molitem in molitems.items():
                     cell_name = mol_bc.split("$")[0]
@@ -1430,7 +1435,7 @@ class ExInCounter:
         idx2bc: list[str]
             list of barcodes
         """
-        molitems: DefaultDict[str, Molitem] = defaultdict(Molitem)
+        molitems: defaultdict[str, Molitem] = defaultdict(Molitem)
         # Sort similarly to what the sort linux command would do. (implemented using Read.__lt__)
         # NOTE NOTE!!!! Here I changed the way to sort because it was using the strand causing to skip a lot of reads in SmartSeq2
         self.reads_to_count.sort()
@@ -1484,7 +1489,7 @@ class ExInCounter:
         dict_layers_columns: dict[str, np.ndarray] = {
             layer_name: sp.sparse.lil_array(shape, dtype=self.loom_numeric_dtype) for layer_name in self.logic.layers
         }
-        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch))))
+        bc2idx: dict[str, int] = dict(zip(self.cell_batch, range(len(self.cell_batch)), strict=False))
         # After the whole file has been read, do the actual counting
         for bcumi, molitem in molitems.items():
             bc = bcumi.split("$")[0]  # extract the bc part from the bc+umi
@@ -1535,7 +1540,7 @@ class ExInCounter:
                                     v2_ivl.transcript_model.genename
                                 )  # “info/ivls/features_gene“,
                                 info_is_last3prime.append(v2_ivl.is_last_3prime)  # “info/ivls/is_last3prime“
-                                info_is_intron.append(v2_ivl.kind == 105)  # “info/ivls/is_intron“,
+                                info_is_intron.append(v2_ivl.kind == INTRON_SEGMENT_VALUE)  # “info/ivls/is_intron“,
                                 info_start_end.append((v2_ivl.start, v2_ivl.end))  # “info/ivls/feture_start_end“
                                 info_exino.append(v2_ivl.exin_no)  # “info/ivls/exino“
                                 info_strandplus.append(
@@ -1620,9 +1625,9 @@ class ExInCounter:
                     )
 
                 # cell_name = next(iter(molitems.keys())).split("$")[0]
-                pos: DefaultDict[str, list[tuple[int, int]]] = defaultdict(list)
-                mol: DefaultDict[str, list[int]] = defaultdict(list)
-                ixs: DefaultDict[str, list[int]] = defaultdict(list)
+                pos: defaultdict[str, list[tuple[int, int]]] = defaultdict(list)
+                mol: defaultdict[str, list[int]] = defaultdict(list)
+                ixs: defaultdict[str, list[int]] = defaultdict(list)
                 count_i: int = 0
                 for mol_bc, molitem in molitems.items():
                     cell_name = mol_bc.split("$")[0]
@@ -1675,18 +1680,21 @@ class ExInCounter:
 
     def pcount(
         self,
-        samfile: str,
-        cell_batch_size: int = 50,
-        molecules_report: bool = False,
-        n_processes: int = 4,
+        *args,
+        # samfile: str,
+        # cell_batch_size: int = 50,
+        # molecules_report: bool = False,
+        # n_processes: int = 4,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
         """Do the counting of molecules in parallel using multiprocessing"""
 
-        raise NotImplementedError("Implement this using multiprocessiong")
+        msg = "Implement this using multiprocessiong"
+        raise NotImplementedError(msg)
 
     def pcount_cell_batch(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
         """It performs molecule counting for the current batch of cells"""
-        raise NotImplementedError("This will be a used by .pcount")
+        msg = "This will be a used by .pcount"
+        raise NotImplementedError(msg)
 
 
 def reverse(strand: str) -> str:
@@ -1695,4 +1703,5 @@ def reverse(strand: str) -> str:
     elif strand == "-":
         return "+"
     else:
-        raise ValueError(f"Unknown strand {strand}")
+        msg = f"Unknown strand {strand}"
+        raise ValueError(msg)

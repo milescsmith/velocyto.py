@@ -1,10 +1,11 @@
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import scipy.optimize
 from loguru import logger
 
-from .speedboosted import (
+from velocyto.speedboosted import (
     _colDeltaCor,
     _colDeltaCorLog10,
     _colDeltaCorLog10partial,
@@ -14,7 +15,7 @@ from .speedboosted import (
 )
 
 
-def colDeltaCor(emat: np.ndarray, dmat: np.ndarray, threads: int = None) -> np.ndarray:
+def colDeltaCor(emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -22,9 +23,9 @@ def colDeltaCor(emat: np.ndarray, dmat: np.ndarray, threads: int = None) -> np.n
 
     Arguments
     ---------
-    emat: np.ndarray (ngenes, ncells)
+    emat: npt.ArrayLike (ngenes, ncells)
         gene expression matrix
-    dmat: np.ndarray (ngenes, ncells)
+    dmat: npt.ArrayLike (ngenes, ncells)
         gene velocity/displacement matrix
     threads: int
         number of parallel threads to use
@@ -40,7 +41,7 @@ def colDeltaCor(emat: np.ndarray, dmat: np.ndarray, threads: int = None) -> np.n
     return out
 
 
-def colDeltaCorpartial(emat: np.ndarray, dmat: np.ndarray, ixs: np.ndarray, threads: int = None) -> np.ndarray:
+def colDeltaCorpartial(emat: npt.ArrayLike, dmat: npt.ArrayLike, ixs: npt.ArrayLike, threads: int | None = None) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -48,9 +49,9 @@ def colDeltaCorpartial(emat: np.ndarray, dmat: np.ndarray, ixs: np.ndarray, thre
 
     Arguments
     ---------
-    emat: np.ndarray (ngenes, ncells)
+    emat: npt.ArrayLike (ngenes, ncells)
         gene expression matrix
-    dmat: np.ndarray (ngenes, ncells)
+    dmat: npt.ArrayLike (ngenes, ncells)
         gene velocity/displacement matrix
     ixs: the neighborhood matrix (ncells, nneighbours)
         ixs[i, k] is the kth neighbour to the cell i
@@ -70,7 +71,7 @@ def colDeltaCorpartial(emat: np.ndarray, dmat: np.ndarray, ixs: np.ndarray, thre
     return out
 
 
-def colDeltaCorLog10(emat: np.ndarray, dmat: np.ndarray, threads: int = None, psc: float = 1.0) -> np.ndarray:
+def colDeltaCorLog10(emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None, psc: float = 1.0) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -78,9 +79,9 @@ def colDeltaCorLog10(emat: np.ndarray, dmat: np.ndarray, threads: int = None, ps
 
     Arguments
     ---------
-    emat: np.ndarray (ngenes, ncells)
+    emat: npt.ArrayLike (ngenes, ncells)
         gene expression matrix
-    dmat: np.ndarray (ngenes, ncells)
+    dmat: npt.ArrayLike (ngenes, ncells)
         gene velocity/displacement matrix
     threads: int
         number of parallel threads to use
@@ -97,12 +98,12 @@ def colDeltaCorLog10(emat: np.ndarray, dmat: np.ndarray, threads: int = None, ps
 
 
 def colDeltaCorLog10partial(
-    emat: np.ndarray,
-    dmat: np.ndarray,
-    ixs: np.ndarray,
-    threads: int = None,
+    emat: npt.ArrayLike,
+    dmat: npt.ArrayLike,
+    ixs: npt.ArrayLike,
+    threads: int | None = None,
     psc: float = 1.0,
-) -> np.ndarray:
+) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -110,9 +111,9 @@ def colDeltaCorLog10partial(
 
     Arguments
     ---------
-    emat: np.ndarray (ngenes, ncells)
+    emat: npt.ArrayLike (ngenes, ncells)
         gene expression matrix
-    dmat: np.ndarray (ngenes, ncells)
+    dmat: npt.ArrayLike (ngenes, ncells)
         gene velocity/displacement matrix
     ixs: the neighborhood matrix (ncells, nneighbours)
         ixs[i, k] is the kth neighbour to the cell i
@@ -132,7 +133,7 @@ def colDeltaCorLog10partial(
     return out
 
 
-def colDeltaCorSqrt(emat: np.ndarray, dmat: np.ndarray, threads: int = None, psc: float = 0.0) -> np.ndarray:
+def colDeltaCorSqrt(emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None, psc: float = 0.0) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -140,9 +141,9 @@ def colDeltaCorSqrt(emat: np.ndarray, dmat: np.ndarray, threads: int = None, psc
 
     Arguments
     ---------
-    emat: np.ndarray (ngenes, ncells)
+    emat: npt.ArrayLike (ngenes, ncells)
         gene expression matrix
-    dmat: np.ndarray (ngenes, ncells)
+    dmat: npt.ArrayLike (ngenes, ncells)
         gene velocity/displacement matrix
     threads: int
         number of parallel threads to use
@@ -159,12 +160,12 @@ def colDeltaCorSqrt(emat: np.ndarray, dmat: np.ndarray, threads: int = None, psc
 
 
 def colDeltaCorSqrtpartial(
-    emat: np.ndarray,
-    dmat: np.ndarray,
-    ixs: np.ndarray,
-    threads: int = None,
+    emat: npt.ArrayLike,
+    dmat: npt.ArrayLike,
+    ixs: npt.ArrayLike,
+    threads: int | None = None,
     psc: float = 0.0,
-) -> np.ndarray:
+) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -172,9 +173,9 @@ def colDeltaCorSqrtpartial(
 
     Arguments
     ---------
-    emat: np.ndarray (ngenes, ncells)
+    emat: npt.ArrayLike (ngenes, ncells)
         gene expression matrix
-    dmat: np.ndarray (ngenes, ncells)
+    dmat: npt.ArrayLike (ngenes, ncells)
         gene velocity/displacement matrix
     ixs: the neighborhood matrix (ncells, nneighbours)
         ixs[i, k] is the kth neighbour to the cell i
@@ -194,7 +195,7 @@ def colDeltaCorSqrtpartial(
     return out
 
 
-def _fit1_slope(y: np.ndarray, x: np.ndarray) -> float:
+def _fit1_slope(y: npt.ArrayLike, x: npt.ArrayLike) -> float:
     """Simple function that fit a linear regression model without intercept"""
     if not np.any(x):
         return np.NAN
@@ -211,9 +212,9 @@ def _fit1_slope(y: np.ndarray, x: np.ndarray) -> float:
 
 
 def _fit1_slope_weighted(
-    y: np.ndarray,
-    x: np.ndarray,
-    w: np.ndarray,
+    y: npt.ArrayLike,
+    x: npt.ArrayLike,
+    w: npt.ArrayLike,
     limit_gamma: bool = False,
     bounds: tuple[float, float] = (0, 20),
 ) -> float:
@@ -240,9 +241,9 @@ def _fit1_slope_weighted(
 
 
 def _fit1_slope_weighted_offset(
-    y: np.ndarray,
-    x: np.ndarray,
-    w: np.ndarray,
+    y: npt.ArrayLike,
+    x: npt.ArrayLike,
+    w: npt.ArrayLike,
     fixperc_q: bool = False,
     limit_gamma: bool = False,
 ) -> tuple[float, float]:
@@ -283,7 +284,7 @@ def _fit1_slope_weighted_offset(
     return m[0], m[1]
 
 
-def _fit1_slope_offset(y: np.ndarray, x: np.ndarray, fixperc_q: bool = False) -> tuple[float, float]:
+def _fit1_slope_offset(y: npt.ArrayLike, x: npt.ArrayLike, fixperc_q: bool = False) -> tuple[float, float]:
     """Simple function that fit a linear regression model with intercept"""
     if not np.any(x):
         m = (np.NAN, 0)  # It is definetelly not at steady state!!!
@@ -302,12 +303,12 @@ def _fit1_slope_offset(y: np.ndarray, x: np.ndarray, fixperc_q: bool = False) ->
     return m[0], m[1]
 
 
-def fit_slope(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
+def fit_slope(Y: npt.ArrayLike, X: npt.ArrayLike) -> npt.ArrayLike:
     """Loop through the genes and fits the slope
 
-    Y: np.ndarray, shape=(genes, cells)
+    Y: npt.ArrayLike, shape=(genes, cells)
         the dependent variable (unspliced)
-    X: np.ndarray, shape=(genes, cells)
+    X: npt.ArrayLike, shape=(genes, cells)
         the independent variable (spliced)
     """
     # NOTE this could be easily parallelized
@@ -318,12 +319,12 @@ def fit_slope(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
     )
 
 
-def fit_slope_offset(Y: np.ndarray, X: np.ndarray, fixperc_q: bool = False) -> tuple[np.ndarray, np.ndarray]:
+def fit_slope_offset(Y: npt.ArrayLike, X: npt.ArrayLike, fixperc_q: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """Loop through the genes and fits the slope
 
-    Y: np.ndarray, shape=(genes, cells)
+    Y: npt.ArrayLike, shape=(genes, cells)
         the dependent variable (unspliced)
-    X: np.ndarray, shape=(genes, cells)
+    X: npt.ArrayLike, shape=(genes, cells)
         the independent variable (spliced)
     """
     # NOTE this could be easily parallelized
@@ -337,20 +338,20 @@ def fit_slope_offset(Y: np.ndarray, X: np.ndarray, fixperc_q: bool = False) -> t
 
 
 def fit_slope_weighted(
-    Y: np.ndarray,
-    X: np.ndarray,
-    W: np.ndarray,
+    Y: npt.ArrayLike,
+    X: npt.ArrayLike,
+    W: npt.ArrayLike,
     return_R2: bool = False,
     limit_gamma: bool = False,
     bounds: tuple[float, float] = (0, 20),
-) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+) -> npt.ArrayLike | tuple[np.ndarray, np.ndarray]:
     """Loop through the genes and fits the slope
 
-    Y: np.ndarray, shape=(genes, cells)
+    Y: npt.ArrayLike, shape=(genes, cells)
         the dependent variable (unspliced)
-    X: np.ndarray, shape=(genes, cells)
+    X: npt.ArrayLike, shape=(genes, cells)
         the independent variable (spliced)
-    W: np.ndarray, shape=(genes, cells)
+    W: npt.ArrayLike, shape=(genes, cells)
         the weights that will scale the square residuals
     """
     # NOTE this could be easily parallelized
@@ -376,18 +377,18 @@ def fit_slope_weighted(
 
 
 def fit_slope_weighted_offset(
-    Y: np.ndarray,
-    X: np.ndarray,
-    W: np.ndarray,
+    Y: npt.ArrayLike,
+    X: npt.ArrayLike,
+    W: npt.ArrayLike,
     fixperc_q: bool = False,
     return_R2: bool = True,
     limit_gamma: bool = False,
 ) -> Any:
     """Loop through the genes and fits the slope
 
-    Y: np.ndarray, shape=(genes, cells)
+    Y: npt.ArrayLike, shape=(genes, cells)
         the dependent variable (unspliced)
-    X: np.ndarray, shape=(genes, cells)
+    X: npt.ArrayLike, shape=(genes, cells)
         the independent variable (spliced)
     """
     # NOTE this could be easily parallelized
@@ -410,10 +411,10 @@ def fit_slope_weighted_offset(
 
 
 def clusters_stats(
-    U: np.ndarray,
-    S: np.ndarray,
-    clusters_uid: np.ndarray,
-    cluster_ix: np.ndarray,
+    U: npt.ArrayLike,
+    S: npt.ArrayLike,
+    clusters_uid: npt.ArrayLike,
+    cluster_ix: npt.ArrayLike,
     size_limit: int = 40,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate the averages per cluster

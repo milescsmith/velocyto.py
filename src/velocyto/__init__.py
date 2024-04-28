@@ -1,4 +1,5 @@
-# src/pyplier/__init__.py
+"""velocyto"""
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:
@@ -6,12 +7,11 @@ try:
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
 
+import warnings
 from math import isclose
 
-from numpy import arange
-
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-import warnings
+from numpy import arange
 
 warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)

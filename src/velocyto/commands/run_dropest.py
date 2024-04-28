@@ -1,11 +1,12 @@
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
 import typer
 from loguru import logger
 
+from velocyto import init_logger
 from velocyto.commands._run import _run
-from velocyto.commands.common import init_logger, logicType, loomdtype
+from velocyto.commands.common import LogicType, LoomdType
 
 app = typer.Typer(
     name="velocyto-dropest",
@@ -37,8 +38,8 @@ def run_dropest(
         ),
     ] = None,
     logic: Annotated[
-        logicType, typer.Option("-l", "--logic", help="The logic to use for the filtering")
-    ] = logicType.Permissive10X,
+        LogicType, typer.Option("-l", "--logic", help="The logic to use for the filtering")
+    ] = LogicType.Permissive10X,
     outputfolder: Annotated[
         Optional[Path],
         typer.Option(
@@ -85,13 +86,13 @@ def run_dropest(
         ),
     ] = "4G",
     dtype: Annotated[
-        loomdtype,
+        LoomdType,
         typer.Option(
             "-t",
             "--dtype",
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are expected set uint32 to avoid truncation",
         ),
-    ] = loomdtype.uint32,
+    ] = LoomdType.uint32,
     dump: Annotated[
         str,
         typer.Option(
@@ -109,7 +110,7 @@ def run_dropest(
             count=True,
         ),
     ] = 0,
-    additional_ca: Annotated[tuple[str], typer.Option()] = None,
+    **kwargs
 ) -> None:
     """Runs the velocity analysis on DropEst preprocessed data
 
@@ -119,8 +120,6 @@ def run_dropest(
     """
 
     init_logger(verbose)
-
-    additional_ca = {additional_ca[(i * 2)]: additional_ca[(i * 2) + 1] for i in range(len(additional_ca) // 2)}
 
     if bcfile is None:
         parentpath = bamfile.parent
@@ -137,14 +136,14 @@ def run_dropest(
             logger.info("Exit without doing nothing")
             return
 
-    if "correct" not in bamfile:
+    if "correct" not in bamfile.name:
         logger.warning(
             "The file you are using does not start with the prefix ``correct_`` so it might not be the output of ``velocyto tools dropest_bc_correct``."
         )
         logger.info(
             "The program will run despite the warning but be aware of the possible consequences of not correcting the barcodes"
         )
-    return _run(
+    _run(
         bam_input=(bamfile,),
         gtffile=gtffile,
         bcfile=bcfile,
@@ -163,5 +162,5 @@ def run_dropest(
         loom_numeric_dtype=str(dtype).split(".")[-1],
         dump=dump,
         verbose=verbose,
-        additional_ca=additional_ca,
+        **kwargs,
     )

@@ -1,5 +1,6 @@
-from typing import Any
 from contextlib import suppress
+from typing import Any
+
 import numpy as np
 from loguru import logger
 
@@ -37,7 +38,7 @@ with suppress(ImportError):
                 if not obj_to_obj:
                     return {k: convert_r_obj(v.slots[k]) for k in tuple(v.slotnames())}
 
-                class RS4Object(object):
+                class RS4Object:
                     def __repr__(self) -> str:
                         return f"< RS4Object with attributes: {list(self.__dict__.keys())} >"
 
@@ -46,6 +47,6 @@ with suppress(ImportError):
                     setattr(rs4obj, k, convert_r_obj(v.slots[k], obj_to_obj=obj_to_obj))
                 return rs4obj
             case _:
-                if type(v) != str and verbose:
+                if not isinstance(v, str) and verbose:
                     logger.info(f"not supported yet {type(v)}")
                 return v

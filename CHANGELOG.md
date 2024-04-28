@@ -1,5 +1,13 @@
 Changelog
 
+# [0.40.0]
+
+## Changed
+
+- At this point, lots.  More structural pattern matching, lots of typing fixes for mypy
+- Removed black as formatter, using ruff
+- Moved ruff config to its own file
+
 # [0.31.0]
 
 ## Changed

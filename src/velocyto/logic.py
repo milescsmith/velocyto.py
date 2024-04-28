@@ -1,9 +1,8 @@
 import abc
-from typing import Union
 
 import numpy as np
 
-from .molitem import Molitem
+from velocyto.molitem import Molitem
 
 
 class Logic(metaclass=abc.ABCMeta):
@@ -37,7 +36,7 @@ class Logic(metaclass=abc.ABCMeta):
         cell_bcidx: int,
         dict_layers_columns: dict[str, np.ndarray],
         geneid2ix: dict[str, int],
-    ) -> Union[None, int]:
+    ) -> None | int:
         """This methods will have to countain the core operations of the logic to attribute a molecule to one of the cathergories
 
         Arguments
@@ -198,7 +197,7 @@ class Permissive10X(Logic):
         return 4
 
     # TODO Rename this here and in `count`
-    def _extracted_from_count_(self, geneid2ix, transcript_model, arg2, cell_bcidx):
+    def _extracted_from_count_(self, geneid2ix, transcript_model, arg2, cell_bcidx) -> int:
         # More common situation, normal exonic read, count as spliced
         gene_ix = geneid2ix[transcript_model.geneid]
         arg2[gene_ix, cell_bcidx] += 1
@@ -309,7 +308,7 @@ class Intermediate10X(Logic):
                 if not has_exin_intron_span:
                     has_only_span_exin_model = 0
 
-            if not multi_gene and not len(molitem.mappings_record) or multi_gene:
+            if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
                 # no gene is compatible with the observation, do not count
                 return
             if has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
@@ -351,11 +350,10 @@ class Intermediate10X(Logic):
                 return self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
 
     # TODO Rename this here and in `count`
-    def _extracted_from_count_(self, geneid2ix, transcript_model, arg2, cell_bcidx):
+    def _extracted_from_count_(self, geneid2ix, transcript_model, arg2, cell_bcidx) -> None:
         # More common situation, normal exonic read, count as spliced
         gene_ix = geneid2ix[transcript_model.geneid]
         arg2[gene_ix, cell_bcidx] += 1
-        return
 
 
 class ValidatedIntrons10X(Logic):
@@ -399,7 +397,7 @@ class ValidatedIntrons10X(Logic):
     ) -> None:
         if len(molitem.mappings_record) == 0:
             return
-        # NOTE This can be simplified qyuite a bit, without loss of acuracy!
+        # NOTE This can be simplified quite a bit, without loss of acuracy!
         # The hits are not compatible with any annotated transcript model
         spliced = dict_layers_columns["spliced"]
         unspliced = dict_layers_columns["unspliced"]
@@ -461,49 +459,49 @@ class ValidatedIntrons10X(Logic):
                 if not has_exin_intron_span:
                     has_only_span_exin_model = 0
 
-            if not multi_gene and not len(molitem.mappings_record) or multi_gene:
-                # no gene is compatible with the observation, do not count
-                return
-            if has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
-                return self._extracted_from_count_78(geneid2ix, transcript_model, spliced, cell_bcidx)
-            if has_only_span_exin_model:
-                return self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
-            if has_onlyintron_and_valid_model and not has_mixed_model and not has_onlyexo_model:
-                return self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
-            if (
+            if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
+                pass # no gene is compatible with the observation, do not count
+            elif has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
+                self._extracted_from_count_78(geneid2ix, transcript_model, spliced, cell_bcidx)
+            elif has_only_span_exin_model:
+                self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
+            elif has_onlyintron_and_valid_model and not has_mixed_model and not has_onlyexo_model:
+                self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
+            elif (
                 has_onlyintron_model
                 and not has_onlyintron_and_valid_model
                 and not has_mixed_model
                 and not has_onlyexo_model
             ):
                 # Singleton in non-validated intron
-                return
-            if (
+                pass
+            elif (
                 has_invalid_mixed_model
                 and not has_valid_mixed_model
                 and not has_onlyintron_model
                 and not has_onlyexo_model
             ):
                 # Not validated and mapping to exon and introns, happens rarely in 10X / irrelevant.
-                return
-            if has_valid_mixed_model and not has_onlyintron_model and not has_onlyexo_model:
-                return self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
-            if has_onlyintron_model:
-                if has_onlyexo_model and not has_mixed_model:
-                    return self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
-                if not has_onlyexo_model:
-                    return self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
-            if not has_onlyintron_model and has_onlyexo_model:
-                return self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
-            if has_onlyintron_model:
-                return self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
+                pass
+            elif has_valid_mixed_model and not has_onlyintron_model and not has_onlyexo_model:
+                self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
+            elif has_onlyintron_model:
+                if (
+                    has_onlyexo_model
+                    and not has_mixed_model
+                    or not has_onlyexo_model
+                ):
+                    self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
+            elif not has_onlyintron_model and has_onlyexo_model:
+                self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
+            elif has_onlyintron_model:
+                self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
 
     # TODO Rename this here and in `count`
     def _extracted_from_count_78(self, geneid2ix, transcript_model, arg2, cell_bcidx):
         # More common situation, normal exonic read, count as spliced
         gene_ix = geneid2ix[transcript_model.geneid]
         arg2[gene_ix, cell_bcidx] += 1
-        return
 
 
 class Stricter10X(Logic):
@@ -606,29 +604,28 @@ class Stricter10X(Logic):
                 if not has_exin_intron_span:
                     has_only_span_exin_model = 0
 
-            if not multi_gene and not len(molitem.mappings_record) or multi_gene:
+            if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
                 # no gene is compatible with the observation, do not count
-                return
-            if has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
-                return self._extracted_from_count_(geneid2ix, transcript_model, spliced, cell_bcidx)
-            if has_only_span_exin_model:
-                return self._extracted_from_count_(geneid2ix, transcript_model, unspliced, cell_bcidx)
-            if has_onlyintron_and_valid_model and not has_mixed_model and not has_onlyexo_model:
+                pass
+            elif has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
+                self._extracted_from_count_(geneid2ix, transcript_model, spliced, cell_bcidx)
+            elif has_only_span_exin_model:
+                self._extracted_from_count_(geneid2ix, transcript_model, unspliced, cell_bcidx)
+            elif has_onlyintron_and_valid_model and not has_mixed_model and not has_onlyexo_model:
                 if len(segments_list) != 1:
                     # Non singleton in validated intron
                     gene_ix = geneid2ix[transcript_model.geneid]
                     unspliced[gene_ix, cell_bcidx] += 1
                 # Singleton in validated intron, do not count
-                return
-            if (
+            elif (
                 has_onlyintron_model
                 and not has_onlyintron_and_valid_model
                 and not has_mixed_model
                 and not has_onlyexo_model
             ):
                 # Singleton in non-validated intron
-                return
-            if (
+                pass
+            elif (
                 has_invalid_mixed_model
                 and not has_valid_mixed_model
                 and not has_onlyintron_model
@@ -636,24 +633,25 @@ class Stricter10X(Logic):
             ):
                 # Not validated and mapping to exon and introns, happens rarely in 10X / irrelevant.
                 return
-            if has_valid_mixed_model and not has_onlyintron_model and not has_onlyexo_model:
-                return self._extracted_from_count_(geneid2ix, transcript_model, unspliced, cell_bcidx)
-            if has_onlyintron_model:
-                if has_onlyexo_model and not has_mixed_model:
-                    return self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
-                if not has_onlyexo_model:
-                    return self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
-            if not has_onlyintron_model and has_onlyexo_model:
-                return self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
-            if has_onlyintron_model:
-                return self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
+            elif has_valid_mixed_model and not has_onlyintron_model and not has_onlyexo_model:
+                self._extracted_from_count_(geneid2ix, transcript_model, unspliced, cell_bcidx)
+            elif has_onlyintron_model:
+                if (
+                    has_onlyexo_model
+                    and not has_mixed_model
+                    or not has_onlyexo_model
+                ):
+                    self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
+            elif not has_onlyintron_model and has_onlyexo_model:
+                self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
+            elif has_onlyintron_model:
+                self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
 
     # TODO Rename this here and in `count`
     def _extracted_from_count_(self, geneid2ix, transcript_model, arg2, cell_bcidx):
         # More common situation, normal exonic read, count as spliced
         gene_ix = geneid2ix[transcript_model.geneid]
         arg2[gene_ix, cell_bcidx] += 1
-        return
 
 
 class ObservedSpanning10X(Logic):
@@ -760,7 +758,7 @@ class ObservedSpanning10X(Logic):
                 if not has_exin_intron_span:
                     has_only_span_exin_model = 0
 
-            if not multi_gene and not len(molitem.mappings_record) or multi_gene:
+            if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
                 # No gene is compatible with the observation, do not count
                 return
             if has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
@@ -916,7 +914,7 @@ class Discordant10X(Logic):
                 if not has_exin_intron_span:
                     has_only_span_exin_model = 0
 
-            if not multi_gene and not len(molitem.mappings_record) or multi_gene:
+            if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
                 # No gene is compatible with the observation, do not count
                 return
             if has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
@@ -1065,7 +1063,7 @@ class SmartSeq2(Logic):
                 if not has_exin_intron_span:
                     has_only_span_exin_model = 0
 
-            if not multi_gene and not len(molitem.mappings_record) or multi_gene:
+            if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
                 # NOTE it does not happen for Smartseq2
                 # No gene is compatible with the observation, do not count
                 return

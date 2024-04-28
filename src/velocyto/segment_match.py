@@ -1,9 +1,11 @@
-from .constants import SPLIC_INACUR
-from .feature import Feature
+from typing import ClassVar
+
+from velocyto.constants import EXON_SEGMENT_VALUE, INTRON_SEGMENT_VALUE, SPLIC_INACUR
+from velocyto.feature import Feature
 
 
 class SegmentMatch:
-    __slots__ = ["segment", "feature", "is_spliced"]
+    __slots__: ClassVar[list[str]] = ["feature", "is_spliced", "segment"]
 
     def __init__(self, segment: tuple[int, int], feature: Feature, is_spliced: bool = False) -> None:
         self.segment = segment
@@ -12,11 +14,11 @@ class SegmentMatch:
 
     @property
     def maps_to_intron(self) -> bool:
-        return self.feature.kind == 105  # ord("i")
+        return self.feature.kind == INTRON_SEGMENT_VALUE  # ord("i")
 
     @property
     def maps_to_exon(self) -> bool:
-        return self.feature.kind == 101  # ord("e")
+        return self.feature.kind == EXON_SEGMENT_VALUE  # ord("e")
 
     @property
     def skip_makes_sense(self) -> bool:
@@ -36,6 +38,6 @@ class SegmentMatch:
             txt += "exon "
         if self.is_spliced:
             txt += "spliced"
-        txt += f"\nSegmentPosition:{self.segment[0]}-{self.segment[1]} ({self.segment[1]-self.segment[0]+1}bp)"
+        txt += f"\nSegmentPosition:{self.segment[0]}-{self.segment[1]} ({self.segment[1] - self.segment[0] + 1}bp)"
         txt += f"\n{self.feature}\n>"
         return txt

@@ -1,14 +1,14 @@
 from typing import Any
 
-from .constants import LONGEST_INTRON_ALLOWED, MIN_FLANK
-from .feature import Feature
-from .read import Read
+from velocyto.constants import LONGEST_INTRON_ALLOWED, MIN_FLANK
+from velocyto.feature import Feature
+from velocyto.read import Read
 
 
 class TranscriptModel:
     """A simple object representing a transcript model as a list of `Feature` objects"""
 
-    __slots__ = ["trid", "trname", "geneid", "genename", "chromstrand", "list_features"]
+    __slots__ = ["chromstrand", "geneid", "genename", "list_features", "trid", "trname"]
 
     def __init__(self, trid: str, trname: str, geneid: str, genename: str, chromstrand: str) -> None:
         self.trid = trid
@@ -22,11 +22,15 @@ class TranscriptModel:
         yield from self.list_features
 
     def __lt__(self, other: Any) -> bool:
-        assert self.chromstrand == other.chromstrand, "`<`(.__lt__) not implemented for different chromosomes"
+        if self.chromstrand != other.chromstrand:
+            msg = "`<`(.__lt__) not implemented for different chromosomes"
+            raise ValueError(msg)
         return self.list_features[0].start < other.list_features[0].start
 
     def __gt__(self, other: Any) -> bool:
-        assert self.chromstrand == other.chromstrand, "`>` (.__gt__) not implemented for different chromosomes"
+        if self.chromstrand != other.chromstrand:
+            msg = "`>` (.__gt__) not implemented for different chromosomes"
+            raise ValueError(msg)
         return self.list_features[0].start > other.list_features[0].start
 
     @property

@@ -1,15 +1,14 @@
 import random
 import string
-from datetime import datetime
+import sys
 from enum import Enum
-from sys import stderr
 
 from loguru import logger
 
 from velocyto import logic
 
 
-class logicType(str, Enum):
+class LogicType(str, Enum):
     Permissive10X = "Permissive10X"
     Intermediate10X = "Intermediate10X"
     ValidatedIntrons10X = "ValidatedIntrons10X"
@@ -26,17 +25,17 @@ class UMIExtension(str, Enum):
     Nbp = "[N]bp"
 
 
-class loomdtype(str, Enum):
+class LoomdType(str, Enum):
     uint16 = "uint16"
     uint32 = "uint32"
     uint64 = "uint64"
 
 
 def id_generator(size: int = 6, chars: str = string.ascii_uppercase + string.digits) -> str:
-    return "".join(random.choice(chars) for _ in range(size))
+    return "".join(random.choice(chars) for _ in range(size))  # noqa: S311
 
 
-def choose_logic(choice: logicType) -> logic.Logic:
+def choose_logic(choice: LogicType) -> logic.Permissive10X | logic.Intermediate10X | logic.ValidatedIntrons10X | logic.Stricter10X | logic.ObservedSpanning10X | logic.Discordant10X | logic.SmartSeq2:
     match choice:
         case "Permissive10X":
             return logic.Permissive10X
@@ -54,29 +53,13 @@ def choose_logic(choice: logicType) -> logic.Logic:
             return logic.SmartSeq2
         case _:
             logger.exception(f"{choice.value} is not a valid logic type")
-            exit()
+            sys.exit()
 
 
-def choose_dtype(choice: loomdtype) -> str:
+def choose_dtype(choice: LoomdType) -> str:
     if choice == "uint16":
         return "uint16"
     elif choice == "uint32":
         return "uint32"
     else:
         return "uint64"
-
-
-def init_logger(verbose: int, msg_format: str = None) -> None:
-    if msg_format is None:
-        msg_format = "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan>·-·<level>{message}</level>"
-
-    logger.add(f"velocyto_{datetime.now().strftime('%d-%m-%Y--%H-%M-%S')}.log", level="DEBUG")
-
-    if verbose == 3:
-        logger.add(stderr, format=msg_format, level="DEBUG")
-    elif verbose == 2:
-        logger.add(stderr, format=msg_format, level="INFO")
-    elif verbose == 1:
-        logger.add(stderr, format=msg_format, level="WARNING")
-    else:
-        logger.add(stderr, format=msg_format, level="ERROR")

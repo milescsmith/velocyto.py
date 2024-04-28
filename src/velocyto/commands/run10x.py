@@ -1,11 +1,12 @@
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
 import typer
 from loguru import logger
 
+from velocyto import init_logger
 from velocyto.commands._run import _run
-from velocyto.commands.common import init_logger, logicType, loomdtype
+from velocyto.commands.common import LogicType, LoomdType
 
 app = typer.Typer(
     help="Run velocity analysis on 10X Genomics data",
@@ -72,13 +73,13 @@ def run10x(
         ),
     ] = None,
     logic: Annotated[
-        logicType,
+        LogicType,
         typer.Option(
             "--logic",
             "-l",
             help="The logic to use for the filtering",
         ),
-    ] = logicType.Permissive10X,
+    ] = LogicType.Permissive10X,
     multimap: Annotated[
         bool,
         typer.Option(
@@ -104,13 +105,13 @@ def run10x(
         ),
     ] = "4G",
     dtype: Annotated[
-        loomdtype,
+        LoomdType,
         typer.Option(
             "--dtype",
             "-t",
             help="The dtype of the loom file layers - if more than 6000 molecules/reads per gene per cell are expected set uint32 to avoid truncation",
         ),
-    ] = loomdtype.uint16,  # why is this even an option?
+    ] = LoomdType.uint16,  # why is this even an option?
     dump: Annotated[
         str,
         typer.Option(
@@ -152,20 +153,20 @@ def run10x(
     elif "Pipestance completed successfully!" not in samplefolder.joinpath("_log").read_text():
         logger.error("The outputs are not ready")
 
-    bamfile = list(samplefolder.rglob("sample_alignments.bam"))
-    if not bamfile[0].exists():
+    bamfile_glob = list(samplefolder.rglob("sample_alignments.bam"))
+    if not bamfile_glob[0].exists():
         logger.error("BAM file was not found.  Are you sure you have the correct sample folder?")
         logger.exception(
             f"BAM file was not found in any subdirectories of {samplefolder}.  Are you sure you have the correct sample folder?"
         )
-    elif len(bamfile) > 1:
+    elif len(bamfile_glob) > 1:
         logger.error("Too many BAM files found. Which one?")
         logger.exception("multiple matches for `sample_alignemts.bam` were found and now I am confused. Please fix.")
     else:
-        bamfile = bamfile[0]
+        bamfile = bamfile_glob[0]
 
     if not barcode_file:
-        barcode_file = list(samplefolder.joinpath("outs").rglob("sample_filtered_feature_bc_matrix/barcodes.tsv.gz"))
+        barcode_file = next(iter(samplefolder.joinpath("outs").rglob("sample_filtered_feature_bc_matrix/barcodes.tsv.gz")))
 
     if not barcode_file.exists():
         logger.error(f"Can not locate the barcode file! Please check {barcode_file}")
@@ -174,9 +175,10 @@ def run10x(
     outputfolder = samplefolder.joinpath("velocyto")
     sampleid = samplefolder.stem
     if outputfolder.joinpath(f"{sampleid}.h5ad").exists():
-        raise AssertionError("The output already exist. Aborted!")
+        msg = "The output already exist. Aborted!"
+        raise AssertionError(msg)
 
-    return _run(
+    _run(
         bam_input=(bamfile,),
         gtffile=gtffile,
         bcfile=bcfile,

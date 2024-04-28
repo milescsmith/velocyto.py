@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
 import pysam
 import typer
@@ -43,7 +43,7 @@ def dropest_bc_correct(
     try:
         import rpy2.robjects as ro
 
-        from ..r_interface import convert_r_obj
+        from velocyto.r_interface import convert_r_obj
     except Exception:
         msg = "A problem was encountered importing rpy2. To run this `velocyto tools` rpy2 and R need to be installed (the use conda is recommended)"
         ImportError(msg)
@@ -66,9 +66,10 @@ def dropest_bc_correct(
     else:
         bam_out_path = corrected_output
 
-    with pysam.AlignmentFile(bamfilepath, mode="rb") as infile, pysam.AlignmentFile(
-        str(bam_out_path), mode="wb", template=infile
-    ) as outfile:
+    with (
+        pysam.AlignmentFile(bamfilepath, mode="rb") as infile,
+        pysam.AlignmentFile(str(bam_out_path), mode="wb", template=infile) as outfile,
+    ):
         for read in infile:
             # read: pysam.AlignedRead
             cb = read.get_tag("CB")
@@ -76,5 +77,3 @@ def dropest_bc_correct(
                 read.set_tag("CB", mapping[cb], value_type="Z")
             outfile.write(read)
     logger.info("Done")
-
-    return

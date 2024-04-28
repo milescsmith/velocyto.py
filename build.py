@@ -17,19 +17,32 @@ USE_CYTHON = True
 if C_COMPILE:
     package_data: dict = {}
     if USE_CYTHON:
-        extensions = [
-            Extension(
-                "velocyto.speedboosted",
-                include_dirs=[np.get_include()],
-                sources=["src/velocyto/speedboosted.pyx"],
-                extra_compile_args=[
-                    "-fopenmp",
-                    "-ffast-math",
-                    "-O3"
-                ],  # NOTE optional flags -O3 -ffast-math -march=native
-                extra_link_args=["-fopenmp"],
-            )
-        ]
+        if "darwin" in sys.platform:
+            extensions = [
+                Extension(
+                    "velocyto.speedboosted",
+                    include_dirs=[np.get_include()],
+                    sources=["src/velocyto/speedboosted.pyx"],
+                    extra_compile_args=[
+                        "-ffast-math",
+                        "-O3"
+                    ],  # NOTE optional flags -O3 -ffast-math -march=native
+                )
+            ]
+        else:
+            extensions = [
+                Extension(
+                    "velocyto.speedboosted",
+                    include_dirs=[np.get_include()],
+                    sources=["src/velocyto/speedboosted.pyx"],
+                    extra_compile_args=[
+                        "-fopenmp",
+                        "-ffast-math",
+                        "-O3"
+                    ],  # NOTE optional flags -O3 -ffast-math -march=native
+                    extra_link_args=["-fopenmp"],
+                )
+            ]
         extensions = cythonize(
             extensions,
             include_path=[np.get_include()],

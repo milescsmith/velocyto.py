@@ -23,7 +23,7 @@ cdef void x_colDeltaCor(double *e,
         int i, j, c
     
     with nogil:
-        for c in prange(cols, schedule='guided', num_threads=num_threads):
+        for c in prange(cols, schedule="guided", num_threads=num_threads):
             A = <double *>malloc(rows * cols * sizeof(double))
             tmp = <double *>malloc(1 * sizeof(double)) 
             # subtract the cth column
@@ -104,7 +104,7 @@ cdef void x_colDeltaCorSqrt(double *e,
         int i, j, c
     
     with nogil:
-        for c in prange(cols, schedule='guided', num_threads=num_threads):
+        for c in prange(cols, schedule="guided", num_threads=num_threads):
             A = <double *>malloc(rows * cols * sizeof(double))
             tmp = <double *>malloc(1 * sizeof(double)) 
             # subtract the cth column
@@ -189,7 +189,7 @@ cdef void x_colDeltaCorLog10(double *e,
         int i, j, c
     
     with nogil:
-        for c in prange(cols, schedule='guided', num_threads=num_threads):
+        for c in prange(cols, schedule="guided", num_threads=num_threads):
             A = <double *>malloc(rows * cols * sizeof(double))
             tmp = <double *>malloc(1 * sizeof(double)) 
             # subtract the cth column
@@ -275,7 +275,7 @@ cdef void x_colDeltaCorpartial(double *e,
         int i, j, c, n
     
     with nogil:
-        for c in prange(cols, schedule='guided', num_threads=num_threads):
+        for c in prange(cols, schedule="guided", num_threads=num_threads):
             A = <double*> malloc(rows * nrndm * sizeof(double))
             tmp = <double*> malloc(sizeof(double)) 
             # subtract the cth column
@@ -365,7 +365,7 @@ cdef void x_colDeltaCorSqrtpartial(double *e,
         int i, j, c, n
     
     with nogil:
-        for c in prange(cols, schedule='guided', num_threads=num_threads):
+        for c in prange(cols, schedule="guided", num_threads=num_threads):
             A = <double*> malloc(rows * nrndm * sizeof(double))
             tmp = <double*> malloc(sizeof(double)) 
             # subtract the cth column
@@ -462,7 +462,7 @@ cdef void x_colDeltaCorLog10partial(double *e,
         int i, j, c, n
     
     with nogil:
-        for c in prange(cols, schedule='guided', num_threads=num_threads):
+        for c in prange(cols, schedule="guided", num_threads=num_threads):
             A = <double*> malloc(rows * nrndm * sizeof(double))
             tmp = <double*> malloc(sizeof(double)) 
             # subtract the cth column
@@ -542,10 +542,7 @@ cdef void x_colDeltaCorLog10partial(double *e,
     
 
 # Functions accessible from python, adapt the C function to python thorugh cPython API
-def _colDeltaCor(double[:, ::1] e,
-                 double[:, ::1] d,
-                 double[:, ::1] rm,
-                 int num_threads):
+def _colDeltaCor(double[:, ::1] e, double[:, ::1] d, double[:, ::1] rm, int num_threads):
     cdef:
         int rows = e.shape[0]
         int cols = e.shape[1]

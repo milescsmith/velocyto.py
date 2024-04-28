@@ -1,12 +1,13 @@
 import contextlib
 import warnings
 from copy import deepcopy
-from typing import Any, Union
 from types import MappingProxyType
+from typing import Any, Literal
 
 import loompy
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import scipy.stats
 from loguru import logger
 from numba import jit
@@ -18,8 +19,9 @@ from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 from sklearn.svm import SVR
 
-from .diffusion import Diffusion
-from .estimation import (
+from velocyto.constants import MAX_TMP_COLORANDUM, MIN_PCA_VARIANCE_RATIO, MIN_TMP_COLORANDUM, MIN_UCELL_SIZE
+from velocyto.diffusion import Diffusion
+from velocyto.estimation import (
     clusters_stats,
     colDeltaCor,
     colDeltaCorLog10,
@@ -32,8 +34,8 @@ from .estimation import (
     fit_slope_weighted,
     fit_slope_weighted_offset,
 )
-from .neighbors import BalancedKNN, connectivity_to_weights, convolve_by_sparse_weights, knn_distance_matrix
-from .serialization import dump_hdf5, load_hdf5
+from velocyto.neighbors import BalancedKNN, connectivity_to_weights, convolve_by_sparse_weights, knn_distance_matrix
+from velocyto.serialization import dump_hdf5, load_hdf5
 
 
 class VelocytoLoom:
@@ -72,8 +74,8 @@ class VelocytoLoom:
         self.S = ds.layer["spliced"][:, :]
         self.U = ds.layer["unspliced"][:, :]
         self.A = ds.layer["ambiguous"][:, :]
-        self.ca = dict(ds.col_attrs.items())
-        self.ra = dict(ds.row_attrs.items())
+        self.ca: dict[str, Any] = dict(ds.col_attrs.items())
+        self.ra: dict[str, Any] = dict(ds.row_attrs.items())
         ds.close()
 
         self.initial_cell_size = self.S.sum(0)
@@ -106,7 +108,7 @@ class VelocytoLoom:
         """
         dump_hdf5(self, filename, **kwargs)
 
-    def plot_fractions(self, save2file: str = None) -> None:
+    def plot_fractions(self, save2file: str | None = None) -> None:
         """Plots a barplot showing the abundance of spliced/unspliced molecules in the dataset
 
         Arguments
@@ -120,9 +122,9 @@ class VelocytoLoom:
         """
         plt.figure(figsize=(3.2, 5))
         try:
-            chips, chip_ix = np.unique(self.ca["SampleID"], return_inverse=1)
+            chips, chip_ix = np.unique(self.ca["SampleID"], return_inverse=True)
         except KeyError:
-            chips, chip_ix = np.unique([i.split(":")[0] for i in self.ca["CellID"]], return_inverse=1)
+            chips, chip_ix = np.unique([i.split(":")[0] for i in self.ca["CellID"]], return_inverse=True)
         n = len(chips)
         for i in np.unique(chip_ix):
             tot_mol_cell_submatrixes = [X[:, chip_ix == i].sum(0) for X in [self.S, self.A, self.U]]
@@ -187,7 +189,7 @@ class VelocytoLoom:
     def set_clusters(
         self,
         cluster_labels: np.ndarray,
-        cluster_colors_dict: dict[str, list[float]] = None,
+        cluster_colors_dict: dict[str, list[float]] | None = None,
         colormap: Any = None,
     ) -> None:
         """Utility function to set cluster labels, names and colormap
@@ -225,11 +227,11 @@ class VelocytoLoom:
             self.cluster_colors_dict = {cluster_uid[i]: self.colormap(i) for i in range(len(cluster_uid))}
 
     @property
-    def cluster_uid(self) -> np.ndarray:
+    def cluster_uid(self) -> npt.ArrayLike:
         return np.unique(self.cluster_labels)
 
     @property
-    def cluster_ix(self) -> np.ndarray:
+    def cluster_ix(self) -> npt.ArrayLike:
         _, cluster_ix = np.unique(self.cluster_labels, return_inverse=True)
         return cluster_ix
 
@@ -239,13 +241,13 @@ class VelocytoLoom:
         min_expr_cells: int = 2,
         max_expr_avg: float = 20,
         min_expr_avg: int = 0,
-        svr_gamma: float = None,
+        svr_gamma: float | None = None,
         winsorize: bool = False,
         winsor_perc: tuple[float, float] = (1, 99.5),
         sort_inverse: bool = False,
         which: str = "S",
         plot: bool = False,
-    ) -> np.ndarray:
+    ):
         """Rank genes on the basis of a CV vs mean fit, it uses a nonparametric fit (Support Vector Regression)
 
         Arguments
@@ -297,15 +299,15 @@ class VelocytoLoom:
                 & (self.S.mean(1) < max_expr_avg)
                 & (self.S.mean(1) > min_expr_avg)
             )
-            Sf = self.S[detected_bool, :]
+            sf = self.S[detected_bool, :]
             if winsorize:
-                down, up = np.percentile(Sf, winsor_perc, 1)
-                Sfw = np.clip(Sf, down[:, None], up[:, None])
-                mu = Sfw.mean(1)
-                sigma = Sfw.std(1, ddof=1)
+                down, up = np.percentile(sf, winsor_perc, 1)
+                sfw = np.clip(sf, down[:, None], up[:, None])
+                mu = sfw.mean(1)
+                sigma = sfw.std(1, ddof=1)
             else:
-                mu = Sf.mean(1)
-                sigma = Sf.std(1, ddof=1)
+                mu = sf.mean(1)
+                sigma = sf.std(1, ddof=1)
 
             cv = sigma / mu
             log_m = np.log2(mu)
@@ -358,15 +360,15 @@ class VelocytoLoom:
                 & (self.U.mean(1) < max_expr_avg)
                 & (self.U.mean(1) > min_expr_avg)
             )
-            Uf = self.U[detected_bool, :]
+            uf = self.U[detected_bool, :]
             if winsorize:
-                down, up = np.percentile(Uf, winsor_perc, 1)
-                Ufw = np.clip(Uf, down[:, None], up[:, None])
-                mu = Ufw.mean(1)
-                sigma = Ufw.std(1, ddof=1)
+                down, up = np.percentile(uf, winsor_perc, 1)
+                ufw = np.clip(uf, down[:, None], up[:, None])
+                mu = ufw.mean(1)
+                sigma = ufw.std(1, ddof=1)
             else:
-                mu = Uf.mean(1)
-                sigma = Uf.std(1, ddof=1)
+                mu = uf.mean(1)
+                sigma = uf.std(1, ddof=1)
 
             cv = sigma / mu
             log_m = np.log2(mu)
@@ -427,32 +429,31 @@ class VelocytoLoom:
         ----
         Before running this method `score_cv_vs_mean` need to be run with sort_inverse=True, since only lowly variable genes are used for this size estimation
         """
-        if which == "S":
-            Y = np.log2(self.S[self.cv_mean_selected, :] + pc)
-            Y_avg = Y.mean(1)
-            self.size_factor: np.ndarray = np.median(2 ** (Y - Y_avg[:, None]), axis=0)
-            self.size_factor = self.size_factor / np.mean(self.size_factor)
-        elif which == "U":
-            Y = np.log2(self.U[self.Ucv_mean_selected, :] + pc)
-            Y_avg = Y.mean(1)
-            self.Usize_factor: np.ndarray = np.median(2 ** (Y - Y_avg[:, None]), axis=0)
-            self.Usize_factor = self.Usize_factor / np.mean(self.Usize_factor)
-        elif which == "both":
-            self._extracted_from_robust_size_factor_31(pc)
+        match which:
+            case "S":
+                y = np.log2(self.S[self.cv_mean_selected, :] + pc)
+                self.size_factor: np.ndarray = np.median(2 ** (y - y.mean(1)[:, None]), axis=0)
+                self.size_factor = self.size_factor / np.mean(self.size_factor)
+            case "U":
+                y = np.log2(self.U[self.Ucv_mean_selected, :] + pc)
+                self.Usize_factor: np.ndarray = np.median(2 ** (y - y.mean(1)[:, None]), axis=0)
+                self.Usize_factor = self.Usize_factor / np.mean(self.Usize_factor)
+            case "both":
+                self._extracted_from_robust_size_factor_31(pc)
 
     # TODO Rename this here and in `robust_size_factor`
     def _extracted_from_robust_size_factor_31(self, pc):
-        Y = np.log2(self.S[self.cv_mean_selected, :] + pc)
-        Y_avg = Y.mean(1)
-        self.size_factor: np.ndarray = np.median(2 ** (Y - Y_avg[:, None]), axis=0)
+        y = np.log2(self.S[self.cv_mean_selected, :] + pc)
+        y_avg = y.mean(1)
+        self.size_factor: np.ndarray = np.median(2 ** (y - y_avg[:, None]), axis=0)
         self.size_factor = self.size_factor / np.mean(self.size_factor)
 
-        Y = np.log2(self.U[self.Ucv_mean_selected, :] + pc)
-        Y_avg = Y.mean(1)
-        self.Usize_factor: np.ndarray = np.median(2 ** (Y - Y_avg[:, None]), axis=0)
+        y = np.log2(self.U[self.Ucv_mean_selected, :] + pc)
+        y_avg = y.mean(1)
+        self.Usize_factor: np.ndarray = np.median(2 ** (y - y_avg[:, None]), axis=0)
         self.Usize_factor = self.Usize_factor / np.mean(self.Usize_factor)
 
-    def score_cluster_expression(self, min_avg_U: float = 0.02, min_avg_S: float = 0.08) -> np.ndarray:
+    def score_cluster_expression(self, min_avg_U: float = 0.02, min_avg_S: float = 0.08):
         """Prepare filtering genes on the basis of cluster-wise expression threshold
 
         Arguments
@@ -479,7 +480,7 @@ class VelocytoLoom:
         min_cells_express: int = 20,
         min_expr_counts_U: int = 0,
         min_cells_express_U: int = 0,
-    ) -> np.ndarray:
+    ):
         """Prepare basic filtering of genes on the basis of their detection levels
 
         Arguments
@@ -500,15 +501,15 @@ class VelocytoLoom:
         To perform the filtering by detection levels use the method `filter_genes`
         """
         # Some basic filtering
-        S_sum = self.S.sum(1)
-        S_ncells_express = (self.S > 0).sum(1)
-        U_sum = self.U.sum(1)
-        U_ncells_express = (self.U > 0).sum(1)
+        s_sum = self.S.sum(1)
+        s_ncells_express = (self.S > 0).sum(1)
+        u_sum = self.U.sum(1)
+        u_ncells_express = (self.U > 0).sum(1)
         filter_bool = (
-            (S_sum >= min_expr_counts)
-            & (S_ncells_express >= min_cells_express)
-            & (U_sum >= min_expr_counts_U)
-            & (U_ncells_express >= min_cells_express_U)
+            (s_sum >= min_expr_counts)
+            & (s_ncells_express >= min_cells_express)
+            & (u_sum >= min_expr_counts_U)
+            & (u_ncells_express >= min_cells_express_U)
         )
         self.detection_level_selected = filter_bool
 
@@ -547,25 +548,33 @@ class VelocytoLoom:
         -------
         Nothing but it updates the self.S, self.U, self.ra attributes
         """
-        assert np.any(
+        if not np.any(
             [
                 by_detection_levels,
                 by_cluster_expression,
                 by_cv_vs_mean,
                 (type(by_custom_array) is np.ndarray),
             ]
-        ), "At least one of the filtering methods needs to be True"
+        ):
+            msg = "At least one of the filtering methods needs to be True"
+            raise ValueError(msg)
         tmp_filter = np.ones(self.S.shape[0], dtype=bool)
         if by_cluster_expression:
-            assert hasattr(self, "clu_avg_selected"), "clu_avg_selected was not found"
+            if not hasattr(self, "clu_avg_selected"):
+                msg = "clu_avg_selected was not found"
+                raise AttributeError(msg)
             logger.debug("Filtering by cluster expression")
             tmp_filter = tmp_filter & self.clu_avg_selected
         if by_cv_vs_mean:
-            assert hasattr(self, "cv_mean_selected"), "cv_mean_selected was not found"
+            if not hasattr(self, "cv_mean_selected"):
+                msg = "cv_mean_selected was not found"
+                raise AttributeError(msg)
             logger.debug("Filtering by cv vs mean")
             tmp_filter = tmp_filter & self.cv_mean_selected
         if by_detection_levels:
-            assert hasattr(self, "detection_level_selected"), "detection_level_selected was not found"
+            if not hasattr(self, "detection_level_selected"):
+                msg = "detection_level_selected was not found"
+                raise AttributeError(msg)
             logger.debug("Filtering by detection level")
             tmp_filter = tmp_filter & self.detection_level_selected
         if type(by_custom_array) is np.ndarray:
@@ -612,9 +621,9 @@ class VelocytoLoom:
             else:
                 obj = getattr(self, attr)
                 transpose_flag = False
-            if type(obj) is dict:
+            if isinstance(obj, dict):
                 setattr(self, attr, {k: v[bool_filter] for k, v in obj.items()})
-            elif type(obj) is np.ndarray:
+            elif isinstance(obj, np.ndarray):
                 if len(obj.shape) > 1:
                     if transpose_flag:
                         setattr(self, attr, obj[..., bool_filter])
@@ -623,7 +632,8 @@ class VelocytoLoom:
                 else:
                     setattr(self, attr, obj[bool_filter])
             else:
-                raise NotImplementedError(f"The filtering of an object of type {type(obj)} is not defined")
+                msg = f"The filtering of an object of type {type(obj)} is not defined"
+                raise NotImplementedError(msg)
 
     def _normalize_S(
         self,
@@ -631,8 +641,8 @@ class VelocytoLoom:
         log: bool = True,
         pcount: float = 1,
         relative_size: Any = None,
-        target_size: Any = None,
-    ) -> np.ndarray:
+        target_size: float | None = None,
+    ) -> None:
         """Internal function for the spliced molecule filtering. The `normalize` method should be used as a standard interface"""
         if size:
             if type(relative_size) is np.ndarray:
@@ -653,9 +663,9 @@ class VelocytoLoom:
         log: bool = True,
         pcount: float = 1,
         use_S_size: bool = False,
-        relative_size: np.ndarray = None,
-        target_size: Any = None,
-    ) -> np.ndarray:
+        relative_size: np.ndarray | None = None,
+        target_size: float | None = None,
+    ) -> None:
         """Internal function for the unspliced molecule filtering. The `normalize` method should be used as a standard interface"""
         if size:
             if use_S_size:
@@ -686,13 +696,13 @@ class VelocytoLoom:
         log: bool = True,
         pcount: float = 1,
         relative_size: Any = None,
-        target_size: Any = None,
-    ) -> np.ndarray:
+        target_size: float | None = None,
+    ) -> None:
         """Internal function for the smoothed spliced molecule filtering. The `normalize` method should be used as a standard interface"""
         if size:
             self.xcell_size = relative_size or self.Sx.sum(0)
-            self.xavg_size = self.xcell_size.mean() if target_size is None else target_size
-            self.xnorm_factor = self.xavg_size / self.xcell_size
+            xavg_size = self.xcell_size.mean() if target_size is None else target_size
+            self.xnorm_factor = xavg_size / self.xcell_size
         else:
             self.xnorm_factor = 1
         self.Sx_sz = self.xnorm_factor * self.Sx
@@ -706,8 +716,8 @@ class VelocytoLoom:
         pcount: float = 1,
         use_Sx_size: bool = False,
         relative_size: Any = None,
-        target_size: Any = None,
-    ) -> np.ndarray:
+        target_size: float | None = None,
+    ) -> None:
         """Internal function for the smoothed unspliced molecule filtering. The `normalize` method should be used as a standard interface"""
         if size:
             if use_Sx_size:
@@ -734,13 +744,13 @@ class VelocytoLoom:
 
     def normalize(
         self,
-        which: str = "both",
+        which: Literal["S", "Sx", "U", "Ux", "both", "imputed"] = "both",
         size: bool = True,
         log: bool = True,
         pcount: float = 1,
-        relative_size: np.ndarray = None,
+        relative_size: np.ndarray | None = None,
         use_S_size_for_U: bool = False,
-        target_size: tuple[float, float] = (None, None),
+        target_size: float | tuple[float, float] | None = None,
     ) -> None:
         """Normalization interface
 
@@ -770,74 +780,80 @@ class VelocytoLoom:
         Nothing but creates the attributes `U_norm`, `U_sz` and `S_norm`, "S_sz"
         or `Ux_norm`, `Ux_sz` and `Sx_norm`, "Sx_sz"
         """
-        if which == "S":
-            self._normalize_S(
-                size=size,
-                log=log,
-                pcount=pcount,
-                relative_size=relative_size,
-                target_size=target_size[0],
-            )
-        elif which == "Sx":
-            self._normalize_Sx(
-                size=size,
-                log=log,
-                pcount=pcount,
-                relative_size=relative_size,
-                target_size=target_size[0],
-            )
-        elif which == "U":
-            self._normalize_U(
-                size=size,
-                log=log,
-                pcount=pcount,
-                use_S_size=use_S_size_for_U,
-                relative_size=relative_size,
-                target_size=target_size[1],
-            )
-        elif which == "Ux":
-            self._normalize_Ux(
-                size=size,
-                log=log,
-                pcount=pcount,
-                use_Sx_size=use_S_size_for_U,
-                relative_size=relative_size,
-                target_size=target_size[1],
-            )
-        elif which == "both":
-            self._normalize_S(
-                size=size,
-                log=log,
-                pcount=pcount,
-                relative_size=relative_size,
-                target_size=target_size[0],
-            )
-            self._normalize_U(
-                size=size,
-                log=log,
-                pcount=pcount,
-                use_S_size=use_S_size_for_U,
-                relative_size=relative_size,
-                target_size=target_size[1],
-            )
-        elif which == "imputed":
-            self._normalize_Sx(
-                size=size,
-                log=log,
-                pcount=pcount,
-                relative_size=relative_size,
-                target_size=target_size[0],
-            )
-            self._normalize_Ux(
-                size=size,
-                log=log,
-                pcount=pcount,
-                use_Sx_size=use_S_size_for_U,
-                relative_size=relative_size,
-                target_size=target_size[1],
-            )
+        if isinstance(target_size, tuple):
+            s_target_size, u_target_size = target_size
+        else:
+            s_target_size = u_target_size = target_size
 
-    def perform_PCA(self, which: str = "S_norm", n_components: int = None, div_by_std: bool = False) -> None:
+        match which:
+            case "S":
+                self._normalize_S(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    relative_size=relative_size,
+                    target_size=s_target_size,
+                )
+            case "Sx":
+                self._normalize_Sx(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    relative_size=relative_size,
+                    target_size=s_target_size,
+                )
+            case "U":
+                self._normalize_U(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    use_S_size=use_S_size_for_U,
+                    relative_size=relative_size,
+                    target_size=u_target_size,
+                )
+            case "Ux":
+                self._normalize_Ux(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    use_Sx_size=use_S_size_for_U,
+                    relative_size=relative_size,
+                    target_size=u_target_size,
+                )
+            case "both":
+                self._normalize_S(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    relative_size=relative_size,
+                    target_size=s_target_size,
+                )
+                self._normalize_U(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    use_S_size=use_S_size_for_U,
+                    relative_size=relative_size,
+                    target_size=u_target_size,
+                )
+            case "imputed":
+                self._normalize_Sx(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    relative_size=relative_size,
+                    target_size=s_target_size,
+                )
+                self._normalize_Ux(
+                    size=size,
+                    log=log,
+                    pcount=pcount,
+                    use_Sx_size=use_S_size_for_U,
+                    relative_size=relative_size,
+                    target_size=u_target_size,
+                )
+
+    def perform_PCA(self, which: str = "S_norm", n_components: int | None = None, div_by_std: bool = False) -> None:
         """Perform PCA (cells as samples)
 
         Arguments
@@ -856,12 +872,12 @@ class VelocytoLoom:
             a numpy array of shape (cells, npcs)
 
         """
-        X = getattr(self, which)
+        x = getattr(self, which)
         self.pca = PCA(n_components=n_components)
         if div_by_std:
-            self.pcs = self.pca.fit_transform(X.T / X.std(0))
+            self.pcs = self.pca.fit_transform(x.T / x.std(0))
         else:
-            self.pcs = self.pca.fit_transform(X.T)
+            self.pcs = self.pca.fit_transform(x.T)
 
     def normalize_by_total(
         self,
@@ -891,18 +907,17 @@ class VelocytoLoom:
             Cells with extremely low unspliced count
 
         """
-        target_cell_size = np.median(self.initial_cell_size)
+        target_cell_size = float(np.median(self.initial_cell_size))
         min_Ucell_size = np.percentile(self.initial_Ucell_size, min_perc_U)
-        if min_Ucell_size < 2:
-            raise ValueError(
-                f"min_perc_U={min_perc_U} corresponds to total Unspliced of 1 molecule of less. Please choose higher value or filter our these cell"
-            )
+        if min_Ucell_size < MIN_UCELL_SIZE:
+            msg = f"min_perc_U={min_perc_U} corresponds to total Unspliced of 1 molecule of less. Please choose higher value or filter our these cell"
+            raise ValueError(msg)
         bool_f = self.initial_Ucell_size < min_Ucell_size
         self.small_U_pop = bool_f
         if same_size_UnS:
             target_Ucell_size = target_cell_size  # 0.15 * target_cell_size
         else:
-            target_Ucell_size = np.median(self.initial_Ucell_size[~self.small_U_pop])  # 0.15 * target_cell_size
+            target_Ucell_size = float(np.median(self.initial_Ucell_size[~self.small_U_pop]))  # 0.15 * target_cell_size
 
         if plot:
             self._extracted_from_normalize_by_total_43(bool_f)
@@ -977,10 +992,9 @@ class VelocytoLoom:
         Ucell_size = self.U.sum(0)
         target_cell_size = np.median(cell_size)
         min_Ucell_size = np.percentile(Ucell_size, min_perc_U)
-        if min_Ucell_size < 2:
-            raise ValueError(
-                f"min_perc_U={min_perc_U} corresponds to total Unspliced of 1 molecule of less. Please choose higher value or filter our these cell"
-            )
+        if min_Ucell_size < MIN_UCELL_SIZE:
+            msg = f"min_perc_U={min_perc_U} corresponds to total Unspliced of 1 molecule of less. Please choose higher value or filter our these cell"
+            raise ValueError(msg)
         bool_f = Ucell_size < min_Ucell_size
         self.small_U_pop = bool_f
         if same_size_UnS:
@@ -1126,7 +1140,7 @@ class VelocytoLoom:
         )
         ax.view_init(elev=elev, azim=azim)
 
-    def _perform_PCA_imputed(self, n_components: int = None) -> None:
+    def _perform_PCA_imputed(self, n_components: int | None = None) -> None:
         """Simply performs PCA of `Sx_norm` and save the result as  `pcax`"""
         self.pcax = PCA(n_components=n_components)
         self.pcsx = self.pcax.fit_transform(self.Sx_norm.T)
@@ -1145,17 +1159,17 @@ class VelocytoLoom:
 
     def knn_imputation(
         self,
-        k: int = None,
+        k: int | None = None,
         pca_space: float = True,
         metric: str = "euclidean",
         diag: float = 1,
-        n_pca_dims: int = None,
+        n_pca_dims: int | None = None,
         maximum: bool = False,
         size_norm: bool = True,
         balanced: bool = False,
-        b_sight: int = None,
-        b_maxl: int = None,
-        group_constraint: Union[str, np.ndarray] = None,
+        b_sight: int | None = None,
+        b_maxl: int | None = None,
+        group_constraint: str | np.ndarray | None = None,
         n_jobs: int = 8,
     ) -> None:
         """Performs k-nn smoothing of the data matrix
@@ -1238,7 +1252,8 @@ class VelocytoLoom:
         elif group_constraint is None:
             self.knn = knn_distance_matrix(space, metric=metric, k=k, mode="distance", n_jobs=n_jobs)
         else:
-            raise ValueError("group_constraint is currently supported only if the argument balanced is set to True")
+            msg = "group_constraint is currently supported only if the argument balanced is set to True"
+            raise ValueError(msg)
         connectivity = (self.knn > 0).astype(float)
         with warnings.catch_warnings():
             warnings.simplefilter(
@@ -1342,7 +1357,8 @@ class VelocytoLoom:
 
         """
         if pca_space:
-            assert NotImplementedError
+            msg = "Looks like performing knn in pca space is not (yet?) umplemented"
+            raise NotImplementedError(msg)
         else:
             space = self.Sx_sz  # imputed size normalized counts
         if balanced:
@@ -1373,15 +1389,15 @@ class VelocytoLoom:
 
     def fit_gammas(
         self,
-        steady_state_bool: np.ndarray = None,
+        steady_state_bool: npt.ArrayLike | None = None,
         use_imputed_data: bool = True,
         use_size_norm: bool = True,
         fit_offset: bool = True,
         fixperc_q: bool = False,
         weighted: bool = True,
-        weights: np.ndarray = "maxmin_diag",
+        weights: npt.ArrayLike | str = "maxmin_diag",
         limit_gamma: bool = False,
-        maxmin_perc: list[float] = (2, 98),
+        maxmin_perc: list[float] = [2, 98],
         maxmin_weighted_pow: float = 15,
     ) -> None:
         """Fit gamma using spliced and unspliced data
@@ -1543,7 +1559,7 @@ class VelocytoLoom:
         """For backwards compatibility a wrapper around filter_genes_by_phase_portrait"""
         return self.filter_genes_by_phase_portrait(minR2=minR, min_gamma=min_gamma, minCorr=None)
 
-    def filter_genes_by_phase_portrait(self, minR2: float = 0.1, min_gamma: float = 0.01, minCorr: float = 0.1) -> None:
+    def filter_genes_by_phase_portrait(self, minR2: float = 0.1, min_gamma: float = 0.01, minCorr: float | None = 0.1) -> None:
         """Use the coefficient of determination to filter away genes that have an irregular/complex phase portrait
 
         Arguments
@@ -1561,7 +1577,7 @@ class VelocytoLoom:
         This affects: "U", "U_sz", "U_norm", "Ux", "Ux_sz", "Ux_norm", "S", "S_sz", "S_norm", "Sx", "Sx_sz", "Sx_norm", "gammas", "q", "R2"
         """
 
-        def paired_correlation_rows(A: np.array, B: np.array) -> np.array:
+        def paired_correlation_rows(A: npt.ArrayLike, B: npt.ArrayLike) -> npt.ArrayLike:
             A_m = A - A.mean(1)[:, None]
             B_m = B - B.mean(1)[:, None]
             return (A_m * B_m).sum(1) / (np.linalg.norm(A_m, 2, 1) * np.linalg.norm(B_m, 2, 1))
@@ -1613,7 +1629,7 @@ class VelocytoLoom:
         self,
         which_gamma: str = "gammas",
         which_S: str = "Sx_sz",
-        which_offset: str = "q",
+        which_offset: str | None = "q",
     ) -> None:
         """Predict U (gamma * S) given the gamma model fit
 
@@ -1645,7 +1661,7 @@ class VelocytoLoom:
                 getattr(self, which_gamma)[:, None] * getattr(self, which_S) + getattr(self, which_offset)[:, None]
             )
 
-    def calculate_velocity(self, kind: str = "residual", eps: float = None) -> None:
+    def calculate_velocity(self, kind: str = "residual", eps: float | None = None) -> None:
         """Calculate velocity
 
         Arguments
@@ -1665,7 +1681,8 @@ class VelocytoLoom:
 
         """
         if kind != "residual":
-            raise NotImplementedError(f"Velocity calculation kind={kind} is not implemented")
+            msg = f"Velocity calculation kind={kind} is not implemented"
+            raise NotImplementedError(msg)
 
         if self.which_S_for_pred == "Sx_sz":
             self.velocity = self.Ux_sz - self.Upred
@@ -1704,7 +1721,8 @@ class VelocytoLoom:
         elif assumption == "constant_velocity":
             self.delta_S = delta_t * self.velocity
         else:
-            raise NotImplementedError(f"Assumption {assumption} is not implemented")
+            msg = f"Assumption {assumption} is not implemented"
+            raise NotImplementedError(msg)
 
     def extrapolate_cell_at_t(self, delta_t: float = 1, clip: bool = True) -> None:
         """Extrapolate the gene expression profile for each cell after delta_t
@@ -1742,9 +1760,9 @@ class VelocytoLoom:
         self,
         n_dims: int = 2,
         perplexity: float = 30,
-        initial_pos: np.ndarray = None,
+        initial_pos: np.ndarray | None = None,
         theta: float = 0.5,
-        n_pca_dim: int = None,
+        n_pca_dim: int | None = None,
         max_iter: int = 1000,
     ) -> None:
         """Perform TSNE on the PCA using barnes hut approximation"""
@@ -1766,15 +1784,14 @@ class VelocytoLoom:
         hidim: str = "Sx_sz",
         embed: str = "ts",
         transform: str = "sqrt",
-        ndims: int = None,
-        n_sight: int = None,
-        psc: float = None,
+        ndims: int | None = None,
+        n_sight: int | None = None,
+        psc: float | None = None,
         knn_random: bool = True,
         sampled_fraction: float = 0.3,
         sampling_probs: tuple[float, float] = (0.5, 0.1),
-        max_dist_embed: float = None,
         n_jobs: int = 4,
-        threads: int = None,
+        threads: int | None = None,
         calculate_randomized: bool = True,
         random_seed: int = 15071990,
         **kwargs,
@@ -1803,10 +1820,6 @@ class VelocytoLoom:
         knn_random: bool, default=True
             whether to random sample the neighborhoods to speedup calculation
         sampling_probs: Tuple, default=(0.5, 1)
-        max_dist_embed: float, default=None
-            CURRENTLY NOT USED
-            The maximum distance allowed
-            If None it will be set to 0.25 * average_distance_two_points_taken_at_random
         n_jobs: int, default=4
             number of jobs to calculate knn
             this only applies to the knn search, for the more time consuming correlation computation see threads
@@ -1836,9 +1849,8 @@ class VelocytoLoom:
             n_neighbors = int(self.S.shape[1] / 5)
 
         if (n_sight is not None) and (n_neighbors is not None) and n_neighbors != n_sight:
-            raise ValueError(
-                "n_sight and n_neighbors are different names for the same parameter, they cannot be set differently"
-            )
+            msg = "n_sight and n_neighbors are different names for the same parameter, they cannot be set differently"
+            raise ValueError(msg)
 
         if n_sight is not None and n_neighbors is None:
             n_neighbors = n_sight
@@ -1860,9 +1872,8 @@ class VelocytoLoom:
                 hi_dim_t = np.array(getattr(self, f"{hidim}_t").T[:, :ndims], order="C")
             else:
                 if ndims is not None:
-                    raise ValueError(
-                        f"ndims was set to {ndims} but hidim != 'pcs'. Set ndims = None for hidim='{hidim}'"
-                    )
+                    msg = f"ndims was set to {ndims} but hidim != 'pcs'. Set ndims = None for hidim='{hidim}'"
+                    raise ValueError(msg)
                 hi_dim = getattr(self, hidim)  # [:, :ndims]
                 hi_dim_t = hi_dim + self.used_delta_t * self.delta_S  # [:, :ndims] [:, :ndims]
                 if calculate_randomized:
@@ -1963,7 +1974,8 @@ class VelocytoLoom:
                         psc=psc,
                     )
             else:
-                raise NotImplementedError(f"transform={transform} is not a valid parameter")
+                msg = f"transform={transform} is not a valid parameter"
+                raise NotImplementedError(msg)
             np.fill_diagonal(self.corrcoef, 0)
             if np.any(np.isnan(self.corrcoef)):
                 self.corrcoef[np.isnan(self.corrcoef)] = 1
@@ -1985,9 +1997,8 @@ class VelocytoLoom:
                 hi_dim_t = np.array(getattr(self, f"{hidim}_t").T[:, :ndims], order="C")
             else:
                 if ndims is not None:
-                    raise ValueError(
-                        f"ndims was set to {ndims} but hidim != 'pcs'. Set ndims = None for hidim='{hidim}'"
-                    )
+                    msg = f"ndims was set to {ndims} but hidim != 'pcs'. Set ndims = None for hidim='{hidim}'"
+                    raise ValueError(msg)
                 hi_dim = getattr(self, hidim)  # [:, :ndims]
                 hi_dim_t = hi_dim + self.used_delta_t * self.delta_S  # [:, :ndims] [:, :ndims]
                 if calculate_randomized:
@@ -2048,7 +2059,8 @@ class VelocytoLoom:
                         psc=psc,
                     )
             else:
-                raise NotImplementedError(f"transform={transform} is not a valid parameter")
+                msg = f"transform={transform} is not a valid parameter"
+                raise NotImplementedError(msg)
             np.fill_diagonal(self.corrcoef, 0)
             if calculate_randomized:
                 np.fill_diagonal(self.corrcoef_random, 0)
@@ -2090,7 +2102,8 @@ class VelocytoLoom:
 
         if self.corr_calc not in ["full", "knn_random"]:
             # NOTE should implement a version with cython
-            raise NotImplementedError(f"Weird value self.corr_calc={self.corr_calc}")
+            msg = f"Weird value self.corr_calc={self.corr_calc}"
+            raise NotImplementedError(msg)
         # NOTE maybe sparse matrix here are slower than dense
         # NOTE if knn_random this could be made much faster either using sparse matrix or neigh_ixs
         self.transition_prob = np.exp(self.corrcoef / sigma_corr) * self.embedding_knn.A  # naive
@@ -2180,7 +2193,8 @@ class VelocytoLoom:
         """
         embedding = getattr(self, embed)
         if not hasattr(self, f"delta_{embed}"):
-            raise KeyError("This embedding does not have a delta_*")
+            msg = "This embedding does not have a delta_*"
+            raise KeyError(msg)
         delta_embedding = getattr(self, f"delta_{embed}")
         if hasattr(self, "corrcoef_random"):
             delta_embedding_random = getattr(self, f"delta_{embed}_random")
@@ -2219,9 +2233,7 @@ class VelocytoLoom:
         if hasattr(self, "corrcoef_random"):
             UZ_rndm = (delta_embedding_random[neighs] * gaussian_w[:, :, None]).sum(1) / np.maximum(
                 1, self.total_p_mass
-            )[
-                :, None
-            ]  # weighed average
+            )[:, None]  # weighed average
             magnitude_rndm = np.linalg.norm(UZ, axis=1)
             # Assign attributes
             self.flow_rndm = UZ_rndm
@@ -2233,7 +2245,7 @@ class VelocytoLoom:
         sigma_D: np.ndarray,
         sigma_W: np.ndarray,
         direction: str = "forward",
-        cells_ixs: np.ndarray = None,
+        cells_ixs: np.ndarray | None = None,
     ) -> None:
         """Prepare a transition probability for Markov process
 
@@ -2267,7 +2279,8 @@ class VelocytoLoom:
         elif direction == "backwards":
             self.tr = np.array((self.transition_prob[cells_ixs, :][:, cells_ixs]).T, order="C")
         else:
-            raise NotImplementedError(f"{direction} is not an implemented direction")
+            msg = f"{direction} is not an implemented direction"
+            raise NotImplementedError(msg)
         dist_matrix = squareform(pdist(self.embedding[cells_ixs, :]))
         K_D = gaussian_kernel(dist_matrix, sigma=sigma_D)
         self.tr = self.tr * K_D
@@ -2283,7 +2296,7 @@ class VelocytoLoom:
 
     def run_markov(
         self,
-        starting_p: np.ndarray = None,
+        starting_p: np.ndarray | None = None,
         n_steps: int = 2500,
         mode: str = "time_evolution",
     ) -> None:
@@ -2312,11 +2325,11 @@ class VelocytoLoom:
 
     def default_filter_and_norm(
         self,
-        min_expr_counts: int = None,
-        min_cells_express: int = None,
-        N: int = None,
-        min_avg_U: float = None,
-        min_avg_S: float = None,
+        min_expr_counts: int | None = None,
+        min_cells_express: int | None = None,
+        N: int | None = None,
+        min_avg_U: float | None = None,
+        min_avg_S: float | None = None,
     ) -> None:
         """Useful function to get started with velocyto: it performs initial filtering and feature selection, it uses some heuristics to determine the thresholds, results might be suboptimal.
 
@@ -2374,7 +2387,7 @@ class VelocytoLoom:
         self.normalize_by_total()
         self.adjust_totS_totU(normalize_total=True)
 
-    def default_fit_preparation(self, k: int = None, n_comps: int = None) -> None:
+    def default_fit_preparation(self, k: int | None = None, n_comps: int | None = None) -> None:
         """Useful function to get started with velocyto: it performs PCA and kNN smoothing, it uses some heuristics to determine the parameters, results might be suboptimal.
 
         See `the analysis quick start guide <http://velocyto.org/velocyto.py/tutorial/analysis.html>`_ for further info.
@@ -2392,7 +2405,9 @@ class VelocytoLoom:
         self.perform_PCA()
         # Choose the number of components to use for the kNN graph
         if n_comps is None:
-            n_comps = int(np.where(np.diff(np.diff(np.cumsum(self.pca.explained_variance_ratio_)) > 0.002))[0][0])
+            n_comps = int(
+                np.where(np.diff(np.diff(np.cumsum(self.pca.explained_variance_ratio_)) > MIN_PCA_VARIANCE_RATIO))[0][0]
+            )
         if k is None:
             k = int(min(1000, max(10, np.ceil(self.S.shape[1] * 0.02))))
         self.knn_imputation(
@@ -2432,11 +2447,11 @@ class VelocytoLoom:
 
     def plot_grid_arrows(
         self,
-        quiver_scale: Union[str, float] = "auto",
+        quiver_scale: str | float = "auto",
         scale_type: str = "relative",
         min_mass: float = 1,
-        min_magnitude: float = None,
-        scatter_kwargs_dict: dict = None,
+        min_magnitude: float | None = None,
+        scatter_kwargs_dict: dict | None = None,
         plot_dots: bool = False,
         plot_random: bool = False,
         **quiver_kwargs: Any,
@@ -2490,10 +2505,8 @@ class VelocytoLoom:
         # Determine quiver scale
         if scale_type == "relative":
             if not hasattr(self, "flow_rndm"):
-                raise ValueError(
-                    """"`scale_type` was set to 'relative' but the randomized control was not computed when running estimate_transition_prob
-                Please run estimate_transition_prob or set `scale_type` to `absolute`"""
-                )
+                msg = "\"`scale_type` was set to 'relative' but the randomized control was not computed when running estimate_transition_prob\n                Please run estimate_transition_prob or set `scale_type` to `absolute`"
+                raise ValueError(msg)
             plot_scale = np.linalg.norm(
                 np.max(self.flow_grid, 0) - np.min(self.flow_grid, 0), 2
             )  # Diagonal of the plot
@@ -2579,8 +2592,8 @@ class VelocytoLoom:
 
     def plot_arrows_embedding(
         self,
-        choice: Union[str, int] = "auto",
-        quiver_scale: Union[str, float] = "auto",
+        choice: str | int = "auto",
+        quiver_scale: str | float = "auto",
         scale_type: str = "relative",
         plot_scatter: bool = False,
         scatter_kwargs: dict = MappingProxyType({"kwarg": "default"}),
@@ -2649,10 +2662,8 @@ class VelocytoLoom:
         # Determine quiver scale
         if scale_type == "relative":
             if not hasattr(self, "delta_embedding_random"):
-                raise ValueError(
-                    """`scale_type` was set to 'relative' but the randomized control was not computed when running estimate_transition_prob
-                Please run estimate_transition_prob or set `scale_type` to `absolute`"""
-                )
+                msg = "`scale_type` was set to 'relative' but the randomized control was not computed when running estimate_transition_prob\n                Please run estimate_transition_prob or set `scale_type` to `absolute`"
+                raise ValueError(msg)
             plot_scale = np.linalg.norm(
                 np.max(self.flow_grid, 0) - np.min(self.flow_grid, 0), 2
             )  # Diagonal of the plot
@@ -2714,7 +2725,6 @@ class VelocytoLoom:
         self,
         cell_ix: int = 0,
         alpha: float = 0.1,
-        alpha_neigh: float = 0.2,
         cmap_name: str = "RdBu_r",
         plot_arrow: bool = True,
         mark_cell: bool = True,
@@ -2751,7 +2761,7 @@ class VelocytoLoom:
     # TODO: replace tSNE with UMAP
     def plot_velocity_as_color(
         self,
-        gene_name: str = None,
+        gene_name: str | None = None,
         cmap: Any = plt.cm.RdBu_r,
         gs: Any = None,
         which_tsne: str = "ts",
@@ -2791,8 +2801,8 @@ class VelocytoLoom:
             tmp_colorandum = self.Sx_sz_t[ix, :] - self.Sx_sz[ix, :]
         else:
             tmp_colorandum = self.Sx_t[ix, :] - self.Sx[ix, :]
-        if (np.abs(tmp_colorandum) > 0.00005).sum() < 10:  # If S vs U scatterplot it is flat
-            logger.warn("S vs U scatterplot it is flat")
+        if (np.abs(tmp_colorandum) > MIN_TMP_COLORANDUM).sum() < MAX_TMP_COLORANDUM:  # If S vs U scatterplot it is flat
+            logger.info("S vs U scatterplot it is flat")
             return
         limit = np.max(np.abs(np.percentile(tmp_colorandum, [1, 99])))  # upper and lowe limit / saturation
         tmp_colorandum = tmp_colorandum + limit  # that is: tmp_colorandum - (-limit)
@@ -2805,7 +2815,7 @@ class VelocytoLoom:
 
     def plot_expression_as_color(
         self,
-        gene_name: str = None,
+        gene_name: str | None = None,
         imputed: bool = True,
         cmap: Any = plt.cm.Greens,
         gs: Any = None,
@@ -2921,10 +2931,11 @@ def scatter_viz(x: np.ndarray, y: np.ndarray, *args: Any, **kwargs: Any) -> Any:
     return plt.scatter(x[ix_x_sort][ix_yx_sort], y[ix_x_sort][ix_yx_sort], *args_new, **kwargs_new)
 
 
-def ixs_thatsort_a2b(a: np.ndarray, b: np.ndarray, check_content: bool = True) -> np.ndarray:
+def ixs_thatsort_a2b(a: npt.ArrayLike, b: npt.ArrayLike, check_content: bool = True) -> npt.ArrayLike:
     "This is super duper magic sauce to make the order of one list to be like another"
-    if check_content:
-        assert len(np.intersect1d(a, b)) == len(a), "The two arrays are not matching"
+    if check_content and len(np.intersect1d(a, b)) != len(a):
+        msg = "The two arrays are not matching"
+        raise ValueError(msg)
     return np.argsort(a)[np.argsort(np.argsort(b))]
 
 
@@ -2936,14 +2947,14 @@ colors20 = np.vstack(
 )
 
 
-def colormap_fun(x: np.ndarray) -> np.ndarray:
+def colormap_fun(x: np.ndarray) -> npt.ArrayLike:
     return colors20[np.mod(x, 20)]
 
 
 @jit("float64[:](float64[:], int32[:], int32[:], float64[:])", nopython=True)
 def _scale_to_match_median(
     data: np.ndarray, indices: np.ndarray, indptr: np.ndarray, genes_total: np.ndarray
-) -> np.ndarray:
+) -> npt.ArrayLike:
     # Helper function that operates directly on the .data array of a sparse matrix object
     new_data = np.zeros(data.shape)
     # Loop through the columns
@@ -2997,7 +3008,7 @@ def scale_to_match_median(sparse_matrix: sparse.csr_matrix, genes_total: np.ndar
     )
 
 
-def gaussian_kernel(X: np.ndarray, mu: float = 0, sigma: float = 1) -> np.ndarray:
+def gaussian_kernel(X: np.ndarray, mu: float = 0, sigma: float = 1) -> npt.ArrayLike:
     """Compute gaussian kernel"""
     return np.exp(-((X - mu) ** 2) / (2 * sigma**2)) / np.sqrt(2 * np.pi * sigma**2)
 
