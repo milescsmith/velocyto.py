@@ -1,5 +1,11 @@
 Changelog
 
+# [0.43.0]
+
+## Changed
+
+- Updated deps, including updating to numpy 2.0 and numba 0.60.0
+
 # [0.42.0]
 
 ## Changed
@@ -123,6 +129,10 @@ Changelog
 - remove distutils from build
 - lock requirements and versions
 
+[0.43.0]: https://github.com/milescsmith/velocyto.py/compare/0.42.0..0.43.0
+[0.42.0]: https://github.com/milescsmith/velocyto.py/compare/0.41.0..0.42.0
+[0.41.0]: https://github.com/milescsmith/velocyto.py/compare/0.40.0..0.41.0
+[0.40.0]: https://github.com/milescsmith/velocyto.py/compare/0.31.0..0.40.0
 [0.31.0]: https://github.com/milescsmith/velocyto.py/compare/0.30.2..0.31.0
 [0.30.2]: https://github.com/milescsmith/velocyto.py/compare/0.30.1..0.30.2
 [0.30.1]: https://github.com/milescsmith/velocyto.py/compare/0.30.0..0.30.1

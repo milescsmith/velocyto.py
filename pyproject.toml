@@ -4,7 +4,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "velocyto"
-version = "0.42.0"
+version = "0.43.0"
 authors = [
     {name = "Linnarsson Lab", email = "sten.linnarsson@ki.se"},
 ]
@@ -19,26 +19,28 @@ keywords = [
 license = {text = "BSD-2-Clause"}
 requires-python = "<3.11,>=3.10"
 dependencies = [
-    "numba>=0.57.1",
-    "numpy<1.25,>=1.21",
-    "scipy>=1.13",
-    "cython>=3.0",
-    "matplotlib<4.0,>=3.8",
-    "h5py<4.0.0,>=3.10.0",
-    "loompy<4.0.0,>=3.0.7",
-    "pysam<1.0.0,>=0.21.0",
-    "pandas>=2.0.3",
-    "scikit-learn<2.0.0,>=1.3.0",
-    "rpy2<4.0.0,>=3.5.13",
-    "typer<1.0.0,>=0.9.0",
-    "loguru<1.0.0,>=0.7.0",
-    "rich<14.0.0,>=13.5.2",
-    "tqdm<5.0.0,>=4.65.0",
-    "anndata<1.0.0,>=0.9.2",
+    "numba>=0.60.0",
+    "numpy>=2.0.0",
+    "scipy>=1.14.0",
+    "cython>=3.0.10",
+    "matplotlib>=3.9.1",
+    "h5py>=3.11.0",
+    "loompy>=3.0.7",
+    "pysam>=0.22.1",
+    "pandas>=2.2.2",
+    "scikit-learn>=1.5.1",
+    "rpy2>=3.5.16",
+    "typer>=0.12.3",
+    "loguru>=0.7.2",
+    "rich>=13.7.1",
+    "tqdm>=4.66.4",
+    "anndata>=0.10.8",
 ]
 
 [project.optional-dependencies]
-R = ["rpy2"]
+R = [
+    "rpy2>=3.5.16",
+]
 
 [project.urls]
 homepage = "https://github.com/velocyto-team/velocyto.py"
@@ -51,8 +53,8 @@ velocyto = "velocyto.commands.cli:velocyto"
 [tool.pdm]
 [tool.pdm.dev-dependencies]
 dev = [
-    "memray<2.0.0,>=1.9.1",
-    "memory-profiler<1.0.0,>=0.61.0",
+    "memray>=1.13.3",
+    "memory-profiler>=0.61.0",
     "nox>=2024.4.15",
     "ruff>=0.5.1",
     "mypy>=1.10.1",
