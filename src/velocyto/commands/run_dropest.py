@@ -3,10 +3,9 @@ from typing import Annotated, Optional
 
 import typer
 from loguru import logger
-
-from velocyto import init_logger
 from velocyto.commands._run import _run
 from velocyto.commands.common import LogicType, LoomdType
+from velocyto.logging import init_logger
 
 app = typer.Typer(
     name="velocyto-dropest",
@@ -110,7 +109,7 @@ def run_dropest(
             count=True,
         ),
     ] = 0,
-    **kwargs
+    **kwargs,
 ) -> None:
     """Runs the velocity analysis on DropEst preprocessed data
 

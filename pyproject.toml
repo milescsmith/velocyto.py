@@ -4,7 +4,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "velocyto"
-version = "0.41.0"
+version = "0.42.0"
 authors = [
     {name = "Linnarsson Lab", email = "sten.linnarsson@ki.se"},
 ]
@@ -48,17 +48,15 @@ documentation = "http://velocyto.org/velocyto.py/index.html"
 [project.scripts]
 velocyto = "velocyto.commands.cli:velocyto"
 
-
 [tool.pdm]
 [tool.pdm.dev-dependencies]
 dev = [
-    "mypy<2.0.0,>=1.4.1",
-    "ipython<9.0.0,>=8.14.0",
-    "nox<2024.0.0,>=2023.4.22",
-    "nox-poetry<2.0.0,>=1.0.3",
     "memray<2.0.0,>=1.9.1",
     "memory-profiler<1.0.0,>=0.61.0",
-    "ruff<1.0.0,>=0.3.5",
+    "nox>=2024.4.15",
+    "ruff>=0.5.1",
+    "mypy>=1.10.1",
+    "pytest>=8.2.2",
 ]
 
 [tool.pdm.build]

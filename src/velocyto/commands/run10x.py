@@ -3,10 +3,9 @@ from typing import Annotated, Optional
 
 import typer
 from loguru import logger
-
-from velocyto import init_logger
 from velocyto.commands._run import _run
 from velocyto.commands.common import LogicType, LoomdType
+from velocyto.logging import init_logger
 
 app = typer.Typer(
     help="Run velocity analysis on 10X Genomics data",
@@ -166,7 +165,9 @@ def run10x(
         bamfile = bamfile_glob[0]
 
     if not barcode_file:
-        barcode_file = next(iter(samplefolder.joinpath("outs").rglob("sample_filtered_feature_bc_matrix/barcodes.tsv.gz")))
+        barcode_file = next(
+            iter(samplefolder.joinpath("outs").rglob("sample_filtered_feature_bc_matrix/barcodes.tsv.gz"))
+        )
 
     if not barcode_file.exists():
         logger.error(f"Can not locate the barcode file! Please check {barcode_file}")

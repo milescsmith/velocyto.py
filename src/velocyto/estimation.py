@@ -41,7 +41,9 @@ def colDeltaCor(emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = 
     return out
 
 
-def colDeltaCorpartial(emat: npt.ArrayLike, dmat: npt.ArrayLike, ixs: npt.ArrayLike, threads: int | None = None) -> npt.ArrayLike:
+def colDeltaCorpartial(
+    emat: npt.ArrayLike, dmat: npt.ArrayLike, ixs: npt.ArrayLike, threads: int | None = None
+) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -71,7 +73,9 @@ def colDeltaCorpartial(emat: npt.ArrayLike, dmat: npt.ArrayLike, ixs: npt.ArrayL
     return out
 
 
-def colDeltaCorLog10(emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None, psc: float = 1.0) -> npt.ArrayLike:
+def colDeltaCorLog10(
+    emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None, psc: float = 1.0
+) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 
@@ -133,7 +137,9 @@ def colDeltaCorLog10partial(
     return out
 
 
-def colDeltaCorSqrt(emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None, psc: float = 0.0) -> npt.ArrayLike:
+def colDeltaCorSqrt(
+    emat: npt.ArrayLike, dmat: npt.ArrayLike, threads: int | None = None, psc: float = 0.0
+) -> npt.ArrayLike:
     """Calculate the correlation between the displacement (d[:,i])
     and the difference between a cell and every other (e - e[:, i])
 

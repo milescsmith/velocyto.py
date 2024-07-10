@@ -1559,7 +1559,9 @@ class VelocytoLoom:
         """For backwards compatibility a wrapper around filter_genes_by_phase_portrait"""
         return self.filter_genes_by_phase_portrait(minR2=minR, min_gamma=min_gamma, minCorr=None)
 
-    def filter_genes_by_phase_portrait(self, minR2: float = 0.1, min_gamma: float = 0.01, minCorr: float | None = 0.1) -> None:
+    def filter_genes_by_phase_portrait(
+        self, minR2: float = 0.1, min_gamma: float = 0.01, minCorr: float | None = 0.1
+    ) -> None:
         """Use the coefficient of determination to filter away genes that have an irregular/complex phase portrait
 
         Arguments

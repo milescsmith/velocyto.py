@@ -2,10 +2,9 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-
-from velocyto import init_logger
 from velocyto.commands._run import _run
 from velocyto.commands.common import LogicType, LoomdType, UMIExtension
+from velocyto.logging import init_logger
 
 app = typer.Typer(
     name="velocyto-run",
@@ -173,7 +172,7 @@ def run(
             count=True,
         ),
     ] = 0,
-    **kwargs
+    **kwargs,
 ) -> None:
     """Run velocity analysis
 
@@ -183,7 +182,6 @@ def run(
     """
 
     init_logger(verbose)
-
 
     _run(
         bamfile=bamfile,

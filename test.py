@@ -4,8 +4,9 @@ import sys
 from pathlib import Path
 
 from loguru import logger
+from velocyto.logging import init_logger
 from velocyto.commands._run import _run
-from velocyto.commands.common import LogicType, init_logger
+from velocyto.commands.common import LogicType
 
 sys.path[0] = str(Path(sys.path[0]).parent)
 

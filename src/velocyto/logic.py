@@ -460,7 +460,7 @@ class ValidatedIntrons10X(Logic):
                     has_only_span_exin_model = 0
 
             if (not multi_gene and not len(molitem.mappings_record)) or multi_gene:
-                pass # no gene is compatible with the observation, do not count
+                pass  # no gene is compatible with the observation, do not count
             elif has_onlyexo_model and not has_onlyintron_model and not has_mixed_model:
                 self._extracted_from_count_78(geneid2ix, transcript_model, spliced, cell_bcidx)
             elif has_only_span_exin_model:
@@ -486,11 +486,7 @@ class ValidatedIntrons10X(Logic):
             elif has_valid_mixed_model and not has_onlyintron_model and not has_onlyexo_model:
                 self._extracted_from_count_78(geneid2ix, transcript_model, unspliced, cell_bcidx)
             elif has_onlyintron_model:
-                if (
-                    has_onlyexo_model
-                    and not has_mixed_model
-                    or not has_onlyexo_model
-                ):
+                if has_onlyexo_model and not has_mixed_model or not has_onlyexo_model:
                     self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
             elif not has_onlyintron_model and has_onlyexo_model:
                 self._extracted_from_count_78(geneid2ix, transcript_model, ambiguous, cell_bcidx)
@@ -636,11 +632,7 @@ class Stricter10X(Logic):
             elif has_valid_mixed_model and not has_onlyintron_model and not has_onlyexo_model:
                 self._extracted_from_count_(geneid2ix, transcript_model, unspliced, cell_bcidx)
             elif has_onlyintron_model:
-                if (
-                    has_onlyexo_model
-                    and not has_mixed_model
-                    or not has_onlyexo_model
-                ):
+                if has_onlyexo_model and not has_mixed_model or not has_onlyexo_model:
                     self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)
             elif not has_onlyintron_model and has_onlyexo_model:
                 self._extracted_from_count_(geneid2ix, transcript_model, ambiguous, cell_bcidx)

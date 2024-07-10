@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # velocyto documentation build configuration file, created by
 # sphinx-quickstart on Mon Oct  2 17:26:06 2017.
@@ -17,9 +16,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use pathlib.Path().absolute to make it absolute, like shown here.
 #
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 sys.path.insert(0, Path("..").absolute())
 sys.path.insert(0, Path("_ext").absolute())

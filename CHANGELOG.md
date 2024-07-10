@@ -1,5 +1,16 @@
 Changelog
 
+# [0.42.0]
+
+## Changed
+
+- Renamed the `doc` folder `docs`
+- Altered `noxfile.py` to reflect the poetry -> pdm change
+
+## Fixed
+
+- Apparently I moved the `init_logging` function at one point and forgot to update everything else
+
 # [0.41.0]
 
 ## Changed

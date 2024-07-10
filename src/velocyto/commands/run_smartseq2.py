@@ -2,10 +2,9 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-
-from velocyto import init_logger
 from velocyto.commands._run import _run
 from velocyto.commands.common import LoomdType
+from velocyto.logging import init_logger
 
 app = typer.Typer(
     name="velocyto-smartseq2",

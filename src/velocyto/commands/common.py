@@ -35,7 +35,17 @@ def id_generator(size: int = 6, chars: str = string.ascii_uppercase + string.dig
     return "".join(random.choice(chars) for _ in range(size))  # noqa: S311
 
 
-def choose_logic(choice: LogicType) -> logic.Permissive10X | logic.Intermediate10X | logic.ValidatedIntrons10X | logic.Stricter10X | logic.ObservedSpanning10X | logic.Discordant10X | logic.SmartSeq2:
+def choose_logic(
+    choice: LogicType,
+) -> (
+    logic.Permissive10X
+    | logic.Intermediate10X
+    | logic.ValidatedIntrons10X
+    | logic.Stricter10X
+    | logic.ObservedSpanning10X
+    | logic.Discordant10X
+    | logic.SmartSeq2
+):
     match choice:
         case "Permissive10X":
             return logic.Permissive10X
