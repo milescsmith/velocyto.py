@@ -1,5 +1,11 @@
 Changelog
 
+# [0.44.0]
+
+## Fixed
+
+- Maybe fixed the issue where nothing actually gets installed?
+
 # [0.43.0]
 
 ## Changed
@@ -129,7 +135,8 @@ Changelog
 - remove distutils from build
 - lock requirements and versions
 
-[0.43.0]: https://github.com/milescsmith/velocyto.py/compare/0.42.0..0.43.0
+
+[0.44.0]: https://github.com/milescsmith/velocyto.py/compare/0.43.0..0.44.0
 [0.42.0]: https://github.com/milescsmith/velocyto.py/compare/0.41.0..0.42.0
 [0.41.0]: https://github.com/milescsmith/velocyto.py/compare/0.40.0..0.41.0
 [0.40.0]: https://github.com/milescsmith/velocyto.py/compare/0.31.0..0.40.0

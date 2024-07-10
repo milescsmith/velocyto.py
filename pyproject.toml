@@ -4,7 +4,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "velocyto"
-version = "0.43.0"
+version = "0.44.0"
 authors = [
     {name = "Linnarsson Lab", email = "sten.linnarsson@ki.se"},
 ]
@@ -60,6 +60,4 @@ dev = [
     "mypy>=1.10.1",
     "pytest>=8.2.2",
 ]
-
-[tool.pdm.build]
-includes = ["src/velocyto/*.so", "src/velocyto/*.csv", "src/velocyto/*.pyx", "src/velocyto/*.c"]
+build = ["build.py"]
